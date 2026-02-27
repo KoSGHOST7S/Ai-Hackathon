@@ -7,7 +7,7 @@ const STORAGE_KEY = "assignmint_jwt";
 function storageGet(key: string): Promise<string | null> {
   if (typeof chrome !== "undefined" && chrome.storage) {
     return new Promise((resolve) => {
-      chrome.storage.local.get(key, (result) => resolve(result[key] ?? null));
+      chrome.storage.local.get(key, (result) => resolve((result[key] as string | undefined) ?? null));
     });
   }
   return Promise.resolve(localStorage.getItem(key));
