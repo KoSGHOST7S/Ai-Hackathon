@@ -7,7 +7,10 @@ services:
       dockerfile: apps/server/Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
+      # Override DATABASE_URL to use Docker service hostname instead of localhost
       - DATABASE_URL=postgresql://assignmint:password@db:5432/assignmint?schema=public
     depends_on:
       db:
