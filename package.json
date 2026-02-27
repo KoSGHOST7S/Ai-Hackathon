@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev:extension": "npm run dev -w apps/extension",
-    "dev:server": "npm run dev -w apps/server",
-    "build:extension": "npm run build -w apps/extension",
-    "build:server": "npm run build -w apps/server"
+    "dev:extension": "pnpm --filter extension dev",
+    "dev:server": "pnpm --filter server dev",
+    "build:extension": "pnpm --filter extension build",
+    "build:server": "pnpm --filter server build"
   }
 }
