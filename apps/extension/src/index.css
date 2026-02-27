@@ -68,6 +68,9 @@
   * {
     @apply border-border;
   }
+  html {
+    background: transparent;
+  }
   html,
   body,
   #root {
@@ -76,6 +79,7 @@
     overflow: hidden;
     margin: 0;
     padding: 0;
+    border-radius: 12px;
   }
   body {
     @apply bg-background text-foreground;
