@@ -1,8 +1,10 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
 
-dotenv.config();
+// Load root .env regardless of working directory
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 import authRouter from "./routes/auth";
 import canvasRouter from "./routes/canvas";
