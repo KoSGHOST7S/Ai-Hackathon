@@ -1,10 +1,11 @@
+// apps/extension/src/components/views/MeView.tsx
 import { useState } from "react";
 import { GraduationCap, LogOut, Pencil } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { user } from "@/data/mock";
+import type { MeResponse } from "shared";
 
 const PREFS = [
   { key: "notifications" as const, label: "Notifications", disabled: false },
@@ -12,7 +13,13 @@ const PREFS = [
   { key: "darkMode" as const, label: "Dark mode", disabled: true, soon: true },
 ];
 
-export function MeView() {
+interface Props {
+  user: { id: string; email: string } | null;
+  meData: MeResponse | null;
+  onLogout: () => void;
+}
+
+export function MeView({ user, meData, onLogout }: Props) {
   const [prefs, setPrefs] = useState({
     notifications: true,
     digest: false,
@@ -22,24 +29,25 @@ export function MeView() {
   const toggle = (key: keyof typeof prefs) =>
     setPrefs((p) => ({ ...p, [key]: !p[key] }));
 
+  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??";
+
   return (
     <div className="flex flex-col gap-4 h-full">
-      {/* Profile block */}
       <div className="flex items-center gap-3.5">
-        <Avatar initials={user.initials} size="lg" />
+        <Avatar initials={initials} size="lg" />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-foreground text-sm">{user.name}</p>
-          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-          <div className="flex items-center gap-1 mt-0.5">
-            <GraduationCap className="h-3 w-3 text-muted-foreground shrink-0" />
-            <p className="text-xs text-muted-foreground truncate">{user.school}</p>
-          </div>
+          <p className="font-semibold text-foreground text-sm">{user?.email ?? "—"}</p>
+          {meData?.canvasBaseUrl && (
+            <div className="flex items-center gap-1 mt-0.5">
+              <GraduationCap className="h-3 w-3 text-muted-foreground shrink-0" />
+              <p className="text-xs text-muted-foreground truncate">{meData.canvasBaseUrl}</p>
+            </div>
+          )}
         </div>
       </div>
 
       <Separator />
 
-      {/* Preferences */}
       <div>
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
           Preferences
@@ -49,11 +57,7 @@ export function MeView() {
             <div key={pref.key}>
               <div className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-2">
-                  <span
-                    className={
-                      pref.disabled ? "text-sm text-muted-foreground" : "text-sm text-foreground"
-                    }
-                  >
+                  <span className={pref.disabled ? "text-sm text-muted-foreground" : "text-sm text-foreground"}>
                     {pref.label}
                   </span>
                   {pref.soon && (
@@ -76,7 +80,6 @@ export function MeView() {
 
       <Separator />
 
-      {/* Account actions */}
       <div className="flex gap-2 mt-auto">
         <Button variant="outline" size="sm" className="flex-1 gap-1.5">
           <Pencil className="h-3.5 w-3.5" />
@@ -86,6 +89,7 @@ export function MeView() {
           variant="ghost"
           size="sm"
           className="flex-1 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/8"
+          onClick={onLogout}
         >
           <LogOut className="h-3.5 w-3.5" />
           Sign Out
