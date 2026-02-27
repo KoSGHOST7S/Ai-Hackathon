@@ -1,31 +1,35 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/hooks/useAuth";
+import type { SignupRequest, LoginRequest, AuthResponse } from "shared";
 
 interface Props {
   onComplete: () => void;
+  onSignup: (data: SignupRequest) => Promise<AuthResponse>;
+  onLogin: (data: LoginRequest) => Promise<AuthResponse>;
 }
 
-export function OnboardingStep1({ onComplete }: Props) {
+export function OnboardingStep1({ onComplete, onSignup, onLogin }: Props) {
   const [mode, setMode] = useState<"signup" | "login">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { signup, login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
+      console.log(`[onboarding] attempting ${mode} for ${email}`);
       if (mode === "signup") {
-        await signup({ email, password });
+        await onSignup({ email, password });
       } else {
-        await login({ email, password });
+        await onLogin({ email, password });
       }
+      console.log(`[onboarding] ${mode} succeeded, advancing to step 2`);
       onComplete();
     } catch (err) {
+      console.error(`[onboarding] ${mode} failed:`, err);
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);

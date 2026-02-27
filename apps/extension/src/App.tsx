@@ -20,7 +20,7 @@ type OnboardingStep = "account" | "canvas" | "done";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
-  const { jwt, user, isLoading, logout } = useAuth();
+  const { jwt, user, isLoading, logout, signup, login } = useAuth();
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("account");
   const [meData, setMeData] = useState<MeResponse | null>(null);
   const [meCheckDone, setMeCheckDone] = useState(false);
@@ -59,6 +59,8 @@ export default function App() {
           jwt={jwt}
           onStep1Complete={() => setOnboardingStep("canvas")}
           onComplete={() => setOnboardingStep("done")}
+          onSignup={signup}
+          onLogin={login}
         />
       </div>
     );
