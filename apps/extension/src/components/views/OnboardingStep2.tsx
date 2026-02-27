@@ -3,11 +3,12 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api";
 
 interface Props {
+  isActive: boolean;
   jwt: string;
   onComplete: () => void;
 }
 
-export function OnboardingStep2({ jwt, onComplete }: Props) {
+export function OnboardingStep2({ isActive, jwt, onComplete }: Props) {
   const [canvasBaseUrl, setCanvasBaseUrl] = useState("");
   const [canvasApiKey, setCanvasApiKey] = useState("");
   const [error, setError] = useState("");
@@ -31,24 +32,56 @@ export function OnboardingStep2({ jwt, onComplete }: Props) {
     }
   };
 
+  const play = isActive ? "running" : "paused";
+
   const inputClass =
-    "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50";
+    "flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 transition-colors";
 
   return (
     <div className="flex flex-col items-center justify-center h-full p-6 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mb-6">
-        <span className="text-2xl">🎓</span>
+      {/* Step indicator */}
+      <div
+        className="flex items-center gap-1.5 mb-6 animate-fade-in"
+        style={{ animationPlayState: play, animationDelay: "0ms" }}
+      >
+        <div className="w-6 h-1.5 rounded-full bg-primary/40" />
+        <div className="w-6 h-1.5 rounded-full bg-primary" />
       </div>
-      <h1 className="text-xl font-bold text-foreground mb-1">Connect Canvas</h1>
-      <p className="text-sm text-muted-foreground mb-6">
-        Step 2 of 2 — link your Canvas account so assignmint can fetch your assignments
+
+      {/* Icon */}
+      <div
+        className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center mb-4 animate-scale-in"
+        style={{ animationPlayState: play, animationDelay: "40ms" }}
+      >
+        <span className="text-3xl">🎓</span>
+      </div>
+
+      {/* Title */}
+      <h1
+        className="text-xl font-bold text-foreground mb-1 animate-fade-in-up"
+        style={{ animationPlayState: play, animationDelay: "100ms" }}
+      >
+        Connect Canvas
+      </h1>
+      <p
+        className="text-sm text-muted-foreground mb-6 animate-fade-in-up"
+        style={{ animationPlayState: play, animationDelay: "140ms" }}
+      >
+        Step 2 of 2 — link your Canvas so assignmint can fetch your assignments
       </p>
 
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-3 text-left">
+      {/* Form */}
+      <form
+        onSubmit={handleSubmit}
+        className="w-full max-w-sm space-y-3 text-left animate-fade-in-up"
+        style={{ animationPlayState: play, animationDelay: "180ms" }}
+      >
         <div className="space-y-1">
-          <label htmlFor="baseUrl" className="text-sm font-medium">Canvas Base URL</label>
+          <label htmlFor="ob2-url" className="text-sm font-medium">
+            Canvas Base URL
+          </label>
           <input
-            id="baseUrl"
+            id="ob2-url"
             type="url"
             placeholder="https://bw.instructure.com"
             value={canvasBaseUrl}
@@ -59,9 +92,11 @@ export function OnboardingStep2({ jwt, onComplete }: Props) {
           <p className="text-xs text-muted-foreground">Your school's Canvas domain</p>
         </div>
         <div className="space-y-1">
-          <label htmlFor="apiKey" className="text-sm font-medium">Canvas API Key</label>
+          <label htmlFor="ob2-key" className="text-sm font-medium">
+            Canvas API Key
+          </label>
           <input
-            id="apiKey"
+            id="ob2-key"
             type="password"
             placeholder="••••••••••••••••"
             value={canvasApiKey}
