@@ -10,8 +10,9 @@ datasource db {
 model User {
   id              String       @id @default(cuid())
   email           String       @unique
+  password        String
   canvasBaseUrl   String?
-  canvasToken     String?      // In a real app, this should be encrypted
+  canvasToken     String?
   assignments     Assignment[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
