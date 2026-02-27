@@ -3,7 +3,8 @@
   "name": "assignmint",
   "description": "A minty dashboard popup for assignment productivity.",
   "version": "0.1.0",
-  "permissions": ["activeTab"],
+  "permissions": ["activeTab", "tabs", "storage"],
+  "host_permissions": ["http://localhost:3000/*"],
   "action": {
     "default_title": "assignmint",
     "default_popup": "index.html"
