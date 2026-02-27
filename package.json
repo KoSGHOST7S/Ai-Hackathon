@@ -2,10 +2,6 @@
   "name": "assignmint-monorepo",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
     "dev:extension": "npm run dev -w apps/extension",
     "dev:server": "npm run dev -w apps/server",

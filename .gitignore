@@ -24,6 +24,13 @@ out/
 # Caches
 .cache/
 .turbo/
+*.tsbuildinfo
+
+# Leftover npm lock file (project uses pnpm)
+package-lock.json
+
+# pnpm local store (if configured locally)
+.pnpm-store/
 
 # OS artifacts
 .DS_Store
