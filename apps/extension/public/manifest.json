@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "assignmint",
+  "description": "A minty dashboard popup for assignment productivity.",
+  "version": "0.1.0",
+  "permissions": ["activeTab"],
+  "action": {
+    "default_title": "assignmint",
+    "default_popup": "index.html"
+  }
+}

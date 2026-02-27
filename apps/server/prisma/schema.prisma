@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String       @id @default(cuid())
+  email           String       @unique
+  canvasBaseUrl   String?
+  canvasToken     String?      // In a real app, this should be encrypted
+  assignments     Assignment[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model Assignment {
+  id                 String   @id @default(cuid())
+  userId             String
+  courseId           String
+  canvasAssignmentId String
+  title              String
+  user               User     @relation(fields: [userId], references: [id])
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([userId, canvasAssignmentId])
+}

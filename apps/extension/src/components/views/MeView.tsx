@@ -1,0 +1,96 @@
+import { useState } from "react";
+import { GraduationCap, LogOut, Pencil } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { user } from "@/data/mock";
+
+const PREFS = [
+  { key: "notifications" as const, label: "Notifications", disabled: false },
+  { key: "digest" as const, label: "Daily digest", disabled: false },
+  { key: "darkMode" as const, label: "Dark mode", disabled: true, soon: true },
+];
+
+export function MeView() {
+  const [prefs, setPrefs] = useState({
+    notifications: true,
+    digest: false,
+    darkMode: false,
+  });
+
+  const toggle = (key: keyof typeof prefs) =>
+    setPrefs((p) => ({ ...p, [key]: !p[key] }));
+
+  return (
+    <div className="flex flex-col gap-4 h-full">
+      {/* Profile block */}
+      <div className="flex items-center gap-3.5">
+        <Avatar initials={user.initials} size="lg" />
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-foreground text-sm">{user.name}</p>
+          <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+          <div className="flex items-center gap-1 mt-0.5">
+            <GraduationCap className="h-3 w-3 text-muted-foreground shrink-0" />
+            <p className="text-xs text-muted-foreground truncate">{user.school}</p>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Preferences */}
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">
+          Preferences
+        </p>
+        <div>
+          {PREFS.map((pref, i, arr) => (
+            <div key={pref.key}>
+              <div className="flex items-center justify-between py-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      pref.disabled ? "text-sm text-muted-foreground" : "text-sm text-foreground"
+                    }
+                  >
+                    {pref.label}
+                  </span>
+                  {pref.soon && (
+                    <span className="text-[9px] font-semibold uppercase tracking-wide bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full">
+                      soon
+                    </span>
+                  )}
+                </div>
+                <Switch
+                  checked={prefs[pref.key]}
+                  onCheckedChange={() => !pref.disabled && toggle(pref.key)}
+                  disabled={pref.disabled}
+                />
+              </div>
+              {i < arr.length - 1 && <div className="h-px bg-border" />}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Account actions */}
+      <div className="flex gap-2 mt-auto">
+        <Button variant="outline" size="sm" className="flex-1 gap-1.5">
+          <Pencil className="h-3.5 w-3.5" />
+          Edit Profile
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="flex-1 gap-1.5 text-destructive hover:text-destructive hover:bg-destructive/8"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Sign Out
+        </Button>
+      </div>
+    </div>
+  );
+}
