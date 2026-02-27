@@ -1,12 +1,11 @@
 import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { encrypt } from "../lib/crypto";
+import { prisma } from "../lib/prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 function makeJwt(userId: string, email: string) {
   return jwt.sign({ userId, email }, process.env.JWT_SECRET!, { expiresIn: "7d" });

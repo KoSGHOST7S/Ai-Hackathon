@@ -1,11 +1,10 @@
 // apps/server/src/routes/canvas.ts
 import { Router, Response } from "express";
-import { PrismaClient } from "@prisma/client";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { decrypt } from "../lib/crypto";
+import { prisma } from "../lib/prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 async function getCanvasCredentials(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -46,6 +45,10 @@ router.get("/courses/:courseId/assignments", requireAuth, async (req: AuthReques
       return;
     }
     const { courseId } = req.params;
+    if (!/^\d+$/.test(courseId)) {
+      res.status(400).json({ error: "Invalid courseId" });
+      return;
+    }
     const data = await canvasFetch(
       creds.baseUrl,
       creds.apiKey,
