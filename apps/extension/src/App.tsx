@@ -23,20 +23,26 @@ export default function App() {
   const { jwt, user, isLoading, logout } = useAuth();
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("account");
   const [meData, setMeData] = useState<MeResponse | null>(null);
+  const [meCheckDone, setMeCheckDone] = useState(false);
   const { assignmentInfo } = useCanvasUrl();
 
   // Once we have a JWT, check if canvas is already configured
   useEffect(() => {
-    if (!jwt) return;
+    if (!jwt) {
+      setMeCheckDone(true);
+      return;
+    }
+    setMeCheckDone(false);
     apiFetch<MeResponse>("/auth/me", {}, jwt)
       .then((me) => {
         setMeData(me);
         setOnboardingStep(me.hasCanvasConfig ? "done" : "canvas");
       })
-      .catch(() => setOnboardingStep("canvas"));
+      .catch(() => setOnboardingStep("canvas"))
+      .finally(() => setMeCheckDone(true));
   }, [jwt]);
 
-  if (isLoading) {
+  if (isLoading || !meCheckDone) {
     return (
       <div className="w-[390px] h-[600px] bg-background flex items-center justify-center">
         <span className="text-muted-foreground text-sm">Loading…</span>
