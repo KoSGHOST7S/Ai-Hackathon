@@ -13,15 +13,15 @@ class ReviewRequest(BaseModel):
 class CriterionScore(BaseModel):
     criterionName: str
     level: str
-    points: int
-    maxPoints: int
+    points: float
+    maxPoints: float
     feedback: str
 
 
 class ReviewResponse(BaseModel):
     scores: list[CriterionScore]
-    totalScore: int
-    totalPossible: int
+    totalScore: float
+    totalPossible: float
     strengths: list[str]
     improvements: list[str]
     nextSteps: list[str]

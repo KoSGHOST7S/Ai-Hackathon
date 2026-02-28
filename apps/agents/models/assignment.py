@@ -22,20 +22,20 @@ class AnalyzeRequest(BaseModel):
 
 class RubricLevel(BaseModel):
     label: str
-    points: int
+    points: float
     description: str
 
 
 class RubricCriterion(BaseModel):
     name: str
     description: str
-    weight: int
+    weight: float
     levels: list[RubricLevel]
 
 
 class Rubric(BaseModel):
     criteria: list[RubricCriterion]
-    totalPoints: int
+    totalPoints: float
 
 
 class Milestone(BaseModel):
