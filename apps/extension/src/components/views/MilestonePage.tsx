@@ -1,4 +1,7 @@
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock, Package } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock, Package, CheckSquare, Square } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { SubPageHeader } from "./SubPageHeader";
 import { Button } from "@/components/ui/button";
 import type { Milestone } from "@/types/analysis";
@@ -14,62 +17,6 @@ interface Props {
   hasNext?: boolean;
 }
 
-type Block =
-  | { type: "paragraph"; lines: string[] }
-  | { type: "bullet"; lines: string[] }
-  | { type: "numbered"; lines: string[] };
-
-function parseMarkdownish(text: string): Block[] {
-  const lines = text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const blocks: Block[] = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-    if (/^[-*]\s+/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^[-*]\s+/, ""));
-        i++;
-      }
-      blocks.push({ type: "bullet", lines: items });
-      continue;
-    }
-    if (/^\d+\.\s+/.test(line)) {
-      const items: string[] = [];
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\.\s+/, ""));
-        i++;
-      }
-      blocks.push({ type: "numbered", lines: items });
-      continue;
-    }
-
-    const paragraph: string[] = [line];
-    i++;
-    while (i < lines.length && !/^[-*]\s+/.test(lines[i]) && !/^\d+\.\s+/.test(lines[i])) {
-      paragraph.push(lines[i]);
-      i++;
-    }
-    blocks.push({ type: "paragraph", lines: paragraph });
-  }
-
-  return blocks;
-}
-
-function renderLine(line: string) {
-  const labelMatch = line.match(/^([A-Za-z][A-Za-z /_-]{1,30}):\s+(.+)$/);
-  if (!labelMatch) return <span>{line}</span>;
-  return (
-    <span>
-      <span className="font-semibold text-foreground">{labelMatch[1]}:</span> {labelMatch[2]}
-    </span>
-  );
-}
-
 export function MilestonePage({
   milestone,
   isChecked,
@@ -80,11 +27,25 @@ export function MilestonePage({
   hasPrev = false,
   hasNext = false,
 }: Props) {
-  const blocks = parseMarkdownish(milestone.description);
+  const [checkedTasks, setCheckedTasks] = useState<Set<number>>(new Set());
+
+  function toggleTask(idx: number) {
+    setCheckedTasks((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  }
+
+  const tasks = milestone.tasks ?? [];
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <SubPageHeader title="Milestones" onBack={onBack} />
       <div className="flex-1 overflow-y-auto py-3 flex flex-col gap-4">
+
+        {/* Header */}
         <div>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">
             Step {milestone.order}
@@ -94,38 +55,45 @@ export function MilestonePage({
           </h3>
         </div>
 
-        <div className="space-y-2">
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Plan</p>
-          <div className="rounded-md border border-border bg-muted/25 p-3 space-y-2">
-            {blocks.map((block, idx) => {
-              if (block.type === "bullet") {
-                return (
-                  <ul key={idx} className="space-y-1 list-disc pl-4 text-xs text-foreground/85 leading-relaxed">
-                    {block.lines.map((line, i) => <li key={i}>{renderLine(line)}</li>)}
-                  </ul>
-                );
-              }
-              if (block.type === "numbered") {
-                return (
-                  <ol key={idx} className="space-y-1 list-decimal pl-4 text-xs text-foreground/85 leading-relaxed">
-                    {block.lines.map((line, i) => <li key={i}>{renderLine(line)}</li>)}
-                  </ol>
-                );
-              }
-              return (
-                <p key={idx} className="text-xs text-foreground/85 leading-relaxed">
-                  {block.lines.map((line, i) => (
-                    <span key={i}>
-                      {renderLine(line)}
-                      {i < block.lines.length - 1 ? " " : ""}
-                    </span>
-                  ))}
-                </p>
-              );
-            })}
+        {/* Tasks checklist */}
+        {tasks.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">What to do</p>
+            <div className="rounded-md border border-border bg-muted/25 p-3 space-y-2">
+              {tasks.map((task, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => toggleTask(idx)}
+                  className="flex items-start gap-2 w-full text-left group"
+                >
+                  {checkedTasks.has(idx)
+                    ? <CheckSquare className="h-3.5 w-3.5 shrink-0 mt-0.5 text-primary" />
+                    : <Square className="h-3.5 w-3.5 shrink-0 mt-0.5 text-muted-foreground group-hover:text-foreground" />
+                  }
+                  <span className={`text-xs leading-relaxed ${checkedTasks.has(idx) ? "line-through text-muted-foreground" : "text-foreground/85"}`}>
+                    {task}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
+        {/* Description — markdown prose */}
+        {milestone.description && (
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">How to do it</p>
+            <div className="rounded-md border border-border bg-muted/25 p-3">
+              <div className="milestone-prose">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {milestone.description}
+                </ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Time + Deliverable */}
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-3.5 w-3.5 shrink-0" />
@@ -137,6 +105,7 @@ export function MilestonePage({
           </div>
         </div>
 
+        {/* Mark complete */}
         <Button
           variant={isChecked ? "outline" : "default"}
           className="w-full gap-2"
@@ -146,6 +115,7 @@ export function MilestonePage({
           {isChecked ? "Mark incomplete" : "Mark complete"}
         </Button>
 
+        {/* Prev / Next */}
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" className="gap-2" onClick={onPrev} disabled={!hasPrev}>
             <ChevronLeft className="h-3.5 w-3.5" />

@@ -106,3 +106,31 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* Milestone markdown prose — compact for extension popup */
+.milestone-prose {
+  @apply text-xs text-foreground/85 leading-relaxed;
+}
+.milestone-prose h1,
+.milestone-prose h2,
+.milestone-prose h3 {
+  @apply text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-3 mb-1 first:mt-0;
+}
+.milestone-prose p {
+  @apply mb-2 last:mb-0;
+}
+.milestone-prose ul {
+  @apply list-disc pl-4 space-y-1 mb-2;
+}
+.milestone-prose ol {
+  @apply list-decimal pl-4 space-y-1 mb-2;
+}
+.milestone-prose strong {
+  @apply font-semibold text-foreground;
+}
+.milestone-prose em {
+  @apply italic;
+}
+.milestone-prose code {
+  @apply font-mono text-[10px] bg-muted px-1 rounded;
+}
