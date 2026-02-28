@@ -1,10 +1,38 @@
 import { Router, Response } from "express";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
-import { callAgentsService, streamFromAgentsService, type AgentsAnalyzeRequest } from "../lib/agents";
+import { callAgentsService, streamFromAgentsService, parseFileViaAgents, streamChat, type AgentsAnalyzeRequest, type FileContent } from "../lib/agents";
 import { canvasFetch, getCanvasCredentials } from "../lib/canvas";
 
 const router = Router();
+
+async function fetchFileContents(
+  baseUrl: string, apiKey: string, courseId: string, assignmentId: string
+): Promise<{ names: string[]; contents: FileContent[] }> {
+  const names: string[] = [];
+  const contents: FileContent[] = [];
+  try {
+    const submission = await canvasFetch(baseUrl, apiKey,
+      `/courses/${courseId}/assignments/${assignmentId}/submissions/self`);
+    if (!Array.isArray(submission?.attachments)) return { names, contents };
+
+    for (const att of (submission.attachments as Array<{ display_name?: string; url?: string; size?: number }>).slice(0, 3)) {
+      const name = att.display_name ?? "";
+      if (name) names.push(name);
+      if (!att.url || (att.size && att.size > 2_000_000)) continue;
+      if (!name.toLowerCase().endsWith(".pdf") && !name.toLowerCase().endsWith(".docx")) continue;
+
+      try {
+        const fileRes = await fetch(att.url);
+        if (!fileRes.ok) continue;
+        const buffer = Buffer.from(await fileRes.arrayBuffer());
+        const parsed = await parseFileViaAgents(buffer, name);
+        if (parsed) contents.push(parsed);
+      } catch { /* non-fatal */ }
+    }
+  } catch { /* non-fatal — no submission yet */ }
+  return { names, contents };
+}
 
 // POST /assignments/analyze
 router.post("/analyze", requireAuth, async (req: AuthRequest, res: Response) => {
@@ -32,21 +60,8 @@ router.post("/analyze", requireAuth, async (req: AuthRequest, res: Response) => 
         .join("\n");
     }
 
-    // Try to fetch file attachment names from the student's own submission (non-fatal)
-    let attachment_names: string[] = [];
-    try {
-      const submission = await canvasFetch(
-        creds.baseUrl, creds.apiKey,
-        `/courses/${courseId}/assignments/${assignmentId}/submissions/self`
-      );
-      if (Array.isArray(submission?.attachments)) {
-        attachment_names = (submission.attachments as Array<{ display_name?: string }>)
-          .map((f) => f.display_name ?? "")
-          .filter(Boolean);
-      }
-    } catch {
-      // non-fatal — student may not have submitted yet
-    }
+    const { names: attachment_names, contents: file_contents } =
+      await fetchFileContents(creds.baseUrl, creds.apiKey, courseId, assignmentId);
 
     const result = await callAgentsService({
       name: assignment.name,
@@ -58,6 +73,7 @@ router.post("/analyze", requireAuth, async (req: AuthRequest, res: Response) => 
       allowed_attempts: assignment.allowed_attempts ?? null,
       attachment_names,
       canvas_rubric_summary,
+      file_contents,
     });
 
     const saved = await prisma.analysisResult.upsert({
@@ -96,15 +112,8 @@ router.post("/analyze/stream", requireAuth, async (req: AuthRequest, res: Respon
         .map((c) => `- ${c.description ?? "criterion"} (${c.points ?? 0} pts)`).join("\n");
     }
 
-    let attachment_names: string[] = [];
-    try {
-      const submission = await canvasFetch(creds.baseUrl, creds.apiKey,
-        `/courses/${courseId}/assignments/${assignmentId}/submissions/self`);
-      if (Array.isArray(submission?.attachments)) {
-        attachment_names = (submission.attachments as Array<{ display_name?: string }>)
-          .map((f) => f.display_name ?? "").filter(Boolean);
-      }
-    } catch { /* non-fatal */ }
+    const { names: attachment_names, contents: file_contents } =
+      await fetchFileContents(creds.baseUrl, creds.apiKey, courseId, assignmentId);
 
     const agentReq: AgentsAnalyzeRequest = {
       name: assignment.name,
@@ -116,6 +125,7 @@ router.post("/analyze/stream", requireAuth, async (req: AuthRequest, res: Respon
       allowed_attempts: assignment.allowed_attempts ?? null,
       attachment_names,
       canvas_rubric_summary,
+      file_contents,
     };
 
     // SSE headers — must be sent before any body write
@@ -185,6 +195,49 @@ router.get("/:courseId/:assignmentId/result", requireAuth, async (req: AuthReque
   } catch (err) {
     console.error("get result error:", err);
     res.status(500).json({ error: "Failed to retrieve result" });
+  }
+});
+
+// POST /assignments/:courseId/:assignmentId/chat
+router.post("/:courseId/:assignmentId/chat", requireAuth, async (req: AuthRequest, res: Response) => {
+  const { courseId, assignmentId } = req.params;
+  const { messages } = req.body as { messages: Array<{ role: string; content: string }> };
+  if (!messages?.length) { res.status(400).json({ error: "messages required" }); return; }
+
+  try {
+    const result = await prisma.analysisResult.findUnique({
+      where: { userId_courseId_assignmentId: { userId: req.userId!, courseId, assignmentId } },
+    });
+    if (!result) { res.status(404).json({ error: "Analyze the assignment first" }); return; }
+
+    const system_context = [
+      "You are a helpful academic assistant. Answer questions about this assignment using the context below.",
+      "",
+      `Assignment rubric: ${JSON.stringify(result.rubric)}`,
+      `Assignment milestones: ${JSON.stringify(result.milestones)}`,
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    for await (const event of streamChat({ system_context, messages })) {
+      if (event.type === "done") {
+        res.write(`event: done\ndata: ${JSON.stringify({ content: event.content })}\n\n`);
+      } else {
+        res.write(`event: error\ndata: ${JSON.stringify({ error: event.error })}\n\n`);
+      }
+    }
+    res.end();
+  } catch (err) {
+    console.error("chat error:", err);
+    if (!res.headersSent) {
+      res.status(502).json({ error: "Chat failed" });
+    } else {
+      res.write(`event: error\ndata: ${JSON.stringify({ error: "Internal error" })}\n\n`);
+      res.end();
+    }
   }
 });
 
