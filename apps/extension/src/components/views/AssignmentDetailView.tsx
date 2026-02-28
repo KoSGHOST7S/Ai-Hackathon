@@ -12,7 +12,7 @@ import { ChatPage } from "./ChatPage";
 import { SubmitPage } from "./SubmitPage";
 import { ReviewPage } from "./ReviewPage";
 import { useReview } from "@/hooks/useReview";
-import { storageGet } from "@/lib/storage";
+import { storageGetRaw } from "@/lib/storage";
 import type { CanvasAssignment } from "@/types/analysis";
 import type { AssignmentDetailSession } from "@/lib/uiSession";
 
@@ -97,7 +97,7 @@ export function AssignmentDetailView({
     let cancelled = false;
 
     const checkJobState = async () => {
-      const rawJob = await storageGet("analyzing_assignment");
+      const rawJob = await storageGetRaw("analyzing_assignment");
       if (cancelled) return;
 
       let job: { courseId?: unknown; assignmentId?: unknown } | null = null;
