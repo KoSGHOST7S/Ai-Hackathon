@@ -172,8 +172,12 @@ export function AssignmentDetailView({
     }
   }
 
-  const descriptionText = (assignment.description ?? "")
-    .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const descriptionText = (() => {
+    const html = assignment.description ?? "";
+    if (!html) return "";
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
+  })();
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

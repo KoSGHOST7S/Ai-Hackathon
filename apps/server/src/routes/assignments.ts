@@ -9,6 +9,22 @@ import { fetchAssignmentLinkedFileContents } from "../lib/assignmentFiles";
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
+/** Strip HTML tags and decode entities (e.g. &nbsp; &amp; &#160;) to plain text. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0*39;/gi, "'")
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
+    .replace(/&#x([\da-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 // POST /assignments/parse-file — proxy multipart file to agents service for parsing
 router.post("/parse-file", requireAuth, upload.single("file"), async (req: AuthRequest, res: Response) => {
   if (!req.file) {
@@ -63,10 +79,7 @@ router.post("/analyze", requireAuth, async (req: AuthRequest, res: Response) => 
       `/courses/${courseId}/assignments/${assignmentId}`);
 
     const rawDescriptionHtml = assignment.description ?? "";
-    const description = rawDescriptionHtml
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const description = stripHtml(rawDescriptionHtml);
 
     // Extract Canvas rubric summary if present
     let canvas_rubric_summary: string | null = null;
@@ -122,8 +135,7 @@ router.post("/analyze/stream", requireAuth, async (req: AuthRequest, res: Respon
       `/courses/${courseId}/assignments/${assignmentId}`);
 
     const rawDescriptionHtml = assignment.description ?? "";
-    const description = rawDescriptionHtml
-      .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const description = stripHtml(rawDescriptionHtml);
 
     let canvas_rubric_summary: string | null = null;
     if (Array.isArray(assignment.rubric) && assignment.rubric.length > 0) {
@@ -297,7 +309,7 @@ router.post("/:courseId/:assignmentId/review", requireAuth, async (req: AuthRequ
 
     const assignment = await canvasFetch(creds.baseUrl, creds.apiKey,
       `/courses/${courseId}/assignments/${assignmentId}`);
-    const description = (assignment.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const description = stripHtml(assignment.description ?? "");
 
     const reviewReq: ReviewRequest = {
       assignment_name: assignment.name,
