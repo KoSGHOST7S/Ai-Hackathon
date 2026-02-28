@@ -7,6 +7,11 @@ class AnalyzeRequest(BaseModel):
     points_possible: float = 100.0
     submission_types: list[str] = []
     due_at: str | None = None
+    grading_type: str = "points"
+    allowed_attempts: int | None = None
+    attachment_names: list[str] = []
+    # Field names are camelCase to match LLM JSON output directly (no alias needed)
+    canvas_rubric_summary: str | None = None  # existing Canvas rubric as plain text, if any
 
 
 class RubricLevel(BaseModel):

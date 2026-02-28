@@ -4,12 +4,20 @@ from models.assignment import AnalyzeRequest, Rubric
 from lib.prompts import RUBRIC_SYSTEM
 
 async def generate_rubric(assignment: AnalyzeRequest, model: ModelInference) -> Rubric:
-    user_msg = (
-        f"Assignment: {assignment.name}\n"
-        f"Points possible: {assignment.points_possible}\n"
-        f"Submission types: {', '.join(assignment.submission_types)}\n\n"
-        f"Description:\n{assignment.description}"
-    )
+    parts = [
+        f"Assignment: {assignment.name}",
+        f"Points possible: {assignment.points_possible}",
+        f"Grading type: {assignment.grading_type}",
+        f"Submission types: {', '.join(assignment.submission_types) or 'not specified'}",
+    ]
+    if assignment.allowed_attempts and assignment.allowed_attempts > 0:
+        parts.append(f"Allowed attempts: {assignment.allowed_attempts}")
+    if assignment.attachment_names:
+        parts.append(f"Submitted files: {', '.join(assignment.attachment_names)}")
+    if assignment.canvas_rubric_summary:
+        parts.append(f"\nExisting Canvas rubric (use as basis):\n{assignment.canvas_rubric_summary}")
+    parts.append(f"\nAssignment description:\n{assignment.description}")
+    user_msg = "\n".join(parts)
     resp = model.chat(messages=[
         {"role": "system", "content": RUBRIC_SYSTEM},
         {"role": "user",   "content": user_msg},
