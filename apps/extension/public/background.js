@@ -1,6 +1,6 @@
 const ALARM_NAME = "poll_analysis";
 const POLL_INTERVAL_MINUTES = 5 / 60; // every 5 seconds
-const BASE_URL = "https://api.assignmint.ai";
+const FALLBACK_API_URL = "https://api.assignmint.ai";
 
 // Badge cycle frames shown while analysis is running in the background
 const PULSE_FRAMES = ["·", "··", "···", "··"];
@@ -39,8 +39,9 @@ async function pollOnce() {
   setPendingBadge();
 
   try {
+    const baseUrl = job.apiUrl ?? FALLBACK_API_URL;
     const res = await fetch(
-      `${BASE_URL}/assignments/${job.courseId}/${job.assignmentId}/result`,
+      `${baseUrl}/assignments/${job.courseId}/${job.assignmentId}/result`,
       { headers: { Authorization: `Bearer ${job.jwt}` } }
     );
 

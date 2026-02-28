@@ -5,10 +5,12 @@ import type { AnalysisResult } from "@/types/analysis";
 
 export type AnalysisStatus = "idle" | "loading" | "done" | "error";
 
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+
 function setAnalyzingJob(courseId: string, assignmentId: string, jwt: string) {
   void storageSet(
     "analyzing_assignment",
-    JSON.stringify({ courseId, assignmentId, jwt })
+    JSON.stringify({ courseId, assignmentId, jwt, apiUrl: API_URL })
   );
 }
 
