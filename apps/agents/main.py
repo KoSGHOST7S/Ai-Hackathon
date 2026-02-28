@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 
-load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../../.env"))
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.env"))
 
 from models.assignment import AnalyzeRequest, AnalyzeResponse
 from workflow.pipeline import run_pipeline, stream_pipeline
