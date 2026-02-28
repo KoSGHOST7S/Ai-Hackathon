@@ -1,7 +1,10 @@
+import logging
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException
+
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../../.env"))
 
 from models.assignment import AnalyzeRequest, AnalyzeResponse
@@ -23,4 +26,8 @@ def health():
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
-    return await run_pipeline(req)
+    try:
+        return await run_pipeline(req)
+    except Exception as exc:
+        logging.exception("Pipeline failed")
+        raise HTTPException(status_code=502, detail=str(exc))
