@@ -1,99 +1,88 @@
-import { Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { assignments } from "@/data/mock";
-import { cn } from "@/lib/utils";
-import type { Status } from "@/types";
+import { Loader2 } from "lucide-react";
+import { AssignmentCard } from "@/components/AssignmentCard";
+import type { CanvasAssignment } from "@/types/analysis";
 
-const DAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+interface Props {
+  assignments: CanvasAssignment[];
+  loading: boolean;
+  onSelectAssignment: (a: CanvasAssignment) => void;
+}
 
-function getWeekDays() {
+const DAYS = ["S", "M", "T", "W", "T", "F", "S"];
+
+function startOfWeek(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - d.getDay());
+  return d;
+}
+
+export function PlanView({ assignments, loading, onSelectAssignment }: Props) {
   const today = new Date();
-  const sunday = new Date(today);
-  sunday.setDate(today.getDate() - today.getDay());
+  today.setHours(0, 0, 0, 0);
+  const weekStart = startOfWeek();
 
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(sunday);
-    d.setDate(sunday.getDate() + i);
-    return {
-      label: DAY_LABELS[i],
-      date: d.getDate(),
-      isToday: d.toDateString() === today.toDateString(),
-    };
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
   });
-}
 
-function statusVariant(status: Status) {
-  if (status === "Urgent") return "secondary" as const;
-  if (status === "In Progress") return "default" as const;
-  if (status === "Done") return "accent" as const;
-  return "muted" as const;
-}
-
-export function PlanView() {
-  const weekDays = getWeekDays();
+  // Upcoming assignments sorted by due date
+  const upcoming = [...assignments]
+    .filter((a) => a.due_at && new Date(a.due_at) >= today)
+    .sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime())
+    .slice(0, 8);
 
   return (
-    <div className="flex flex-col gap-4 h-full">
+    <div className="flex flex-col gap-3 h-full overflow-hidden">
       {/* Week strip */}
-      <div className="flex gap-1">
-        {weekDays.map((day, i) => (
-          <button
-            key={i}
-            className={cn(
-              "flex-1 flex flex-col items-center py-2 rounded-lg text-xs font-medium transition-colors",
-              day.isToday
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted",
-            )}
-          >
-            <span className="text-[10px]">{day.label}</span>
-            <span className="font-bold mt-0.5 text-sm">{day.date}</span>
-          </button>
+      <div className="grid grid-cols-7 gap-1 shrink-0">
+        {weekDays.map((d, i) => {
+          const isToday = d.getTime() === today.getTime();
+          const hasAssignment = assignments.some((a) => {
+            if (!a.due_at) return false;
+            const ad = new Date(a.due_at);
+            ad.setHours(0, 0, 0, 0);
+            return ad.getTime() === d.getTime();
+          });
+          return (
+            <div key={i} className="flex flex-col items-center gap-0.5">
+              <span className={`text-[10px] font-medium ${isToday ? "text-primary" : "text-muted-foreground"}`}>
+                {DAYS[i]}
+              </span>
+              <div className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-semibold
+                ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>
+                {d.getDate()}
+              </div>
+              {hasAssignment && (
+                <div className={`h-1 w-1 rounded-full ${isToday ? "bg-primary-foreground" : "bg-primary"}`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Assignment list */}
+      <div className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0">
+        {loading && (
+          <div className="flex items-center justify-center flex-1">
+            <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
+          </div>
+        )}
+        {!loading && upcoming.length === 0 && (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">No upcoming assignments this week</p>
+          </div>
+        )}
+        {!loading && upcoming.map((a) => (
+          <AssignmentCard
+            key={`${a.courseId ?? ""}-${a.id}`}
+            assignment={a}
+            onClick={() => onSelectAssignment(a)}
+          />
         ))}
       </div>
-
-      {/* Timeline */}
-      <div className="flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">
-          Upcoming
-        </p>
-        <div className="flex flex-col">
-          {assignments.map((item, i) => (
-            <div key={item.id} className="flex gap-3">
-              {/* Timeline gutter */}
-              <div className="flex flex-col items-center">
-                <div className="h-3 w-3 rounded-full bg-primary mt-1 shrink-0 ring-2 ring-primary/20" />
-                {i < assignments.length - 1 && (
-                  <div className="flex-1 w-px bg-border mt-1" />
-                )}
-              </div>
-
-              {/* Content */}
-              <div className={cn("flex-1 min-w-0", i < assignments.length - 1 && "pb-4")}>
-                <p className="text-[11px] text-muted-foreground">{item.dueLabel}</p>
-                <div className="flex items-start justify-between mt-0.5 gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground leading-snug truncate">
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{item.course}</p>
-                  </div>
-                  <Badge variant={statusVariant(item.status)} className="shrink-0 mt-0.5">
-                    {item.status}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Add task */}
-      <Button variant="outline" className="w-full gap-2 h-9 mt-auto">
-        <Plus className="h-3.5 w-3.5" />
-        Add Mock Task
-      </Button>
     </div>
   );
 }
