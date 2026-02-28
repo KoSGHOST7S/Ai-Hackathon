@@ -75,10 +75,8 @@ export default function App() {
       (a) => String(a.id) === target.assignmentId &&
              String(a.courseId ?? "") === target.courseId
     );
-    if (match) {
-      setSelectedAssignment(match);
-      if (pendingTarget) setPendingTarget(null);
-    }
+    if (match) setSelectedAssignment(match);
+    if (pendingTarget) setPendingTarget(null);
   }, [assignmentInfo, pendingTarget, assignments]);
 
   useEffect(() => {
@@ -94,6 +92,7 @@ export default function App() {
   // Read and immediately clear any pending deep-link target from the content script
   useEffect(() => {
     storageGet("pendingAssignment").then((raw) => {
+      storageRemove("pendingAssignment");
       if (!raw || typeof raw !== "string") return;
       try {
         const parsed = JSON.parse(raw) as { courseId?: string; assignmentId?: string };
@@ -102,7 +101,6 @@ export default function App() {
         }
       } catch { /* malformed — ignore */ }
     });
-    storageRemove("pendingAssignment");
   }, []);
 
   // Check if popup was opened via the "Open in Assignmint" button on a Canvas page
