@@ -14,14 +14,9 @@ import { useAssignments } from "@/hooks/useAssignments";
 import { apiFetch, fetchAnalysisResults } from "@/lib/api";
 import { loadUiSession, saveUiSession, type AssignmentDetailSession } from "@/lib/uiSession";
 import { storageGet, storageRemove } from "@/lib/storage";
+import { cn } from "@/lib/utils";
 import type { MeResponse } from "shared";
 import type { CanvasAssignment } from "@/types/analysis";
-
-const VIEW_TITLE: Record<Tab, string> = {
-  today: "Today",
-  plan: "Plan",
-  me: "Profile",
-};
 
 type OnboardingStep = "account" | "canvas" | "done";
 
@@ -34,17 +29,27 @@ export default function App() {
   const [meData, setMeData] = useState<MeResponse | null>(null);
   const [meCheckDone, setMeCheckDone] = useState(false);
   const { assignmentInfo } = useCanvasUrl();
-  const [selectedAssignment, setSelectedAssignment] = useState<CanvasAssignment | null>(null);
+
+  // Per-tab selected assignment — each tab independently tracks which assignment is open
+  const [selectedByTab, setSelectedByTab] = useState<Partial<Record<Tab, CanvasAssignment | null>>>({});
+
   const [analyzedKeys, setAnalyzedKeys] = useState<Set<string>>(new Set());
   const [detailByAssignment, setDetailByAssignment] = useState<Record<string, AssignmentDetailSession>>({});
   const [sessionHydrated, setSessionHydrated] = useState(false);
-  const [restoreSelectedRef, setRestoreSelectedRef] = useState<{ courseId: string; assignmentId: string } | null>(null);
+
+  // Refs for restoring per-tab assignment selection from saved session
+  const [restoreByTab, setRestoreByTab] = useState<Partial<Record<Tab, { courseId: string; assignmentId: string }>>>({});
+  const restoredByTabRef = useRef(false);
+
   const [pendingTarget, setPendingTarget] = useState<{ courseId: string; assignmentId: string } | null>(null);
-  const restoredSelectionRef = useRef(false);
   const [pendingAnalyzeKey, setPendingAnalyzeKey] = useState<string | null>(null);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refetch: refetchAssignments } = useAssignments(jwt);
 
   const assignmentKey = useCallback((a: CanvasAssignment) => `${a.courseId ?? ""}-${a.id}`, []);
+
+  const setSelectedForTab = useCallback((t: Tab, a: CanvasAssignment | null) => {
+    setSelectedByTab((prev) => ({ ...prev, [t]: a }));
+  }, []);
 
   const applyMe = useCallback((me: MeResponse) => {
     setMeData(me);
@@ -72,19 +77,24 @@ export default function App() {
     const target = pendingTarget ?? assignmentInfo;
     if (!target || assignments.length === 0) return;
     const match = assignments.find(
-      (a) => String(a.id) === target.assignmentId &&
-             String(a.courseId ?? "") === target.courseId
+      (a) =>
+        String(a.id) === target.assignmentId &&
+        String(a.courseId ?? "") === target.courseId
     );
-    if (match) setSelectedAssignment(match);
+    if (match) {
+      setTab("today");
+      setSelectedForTab("today", match);
+    }
     if (pendingTarget) setPendingTarget(null);
-  }, [assignmentInfo, pendingTarget, assignments]);
+  }, [assignmentInfo, pendingTarget, assignments, setSelectedForTab]);
 
+  // Hydrate session from storage on mount
   useEffect(() => {
     loadUiSession()
       .then((session) => {
         setTab(session.tab);
         setDetailByAssignment(session.detailByAssignment);
-        setRestoreSelectedRef(session.selectedAssignment);
+        setRestoreByTab(session.selectedByTab as Partial<Record<Tab, { courseId: string; assignmentId: string }>>);
       })
       .finally(() => setSessionHydrated(true));
   }, []);
@@ -115,28 +125,35 @@ export default function App() {
     });
   }, []);
 
+  // Restore per-tab assignment selections from saved session once assignments are loaded
   useEffect(() => {
-    if (!sessionHydrated || assignments.length === 0 || restoredSelectionRef.current) return;
-    restoredSelectionRef.current = true;
-    if (!restoreSelectedRef) return;
-    const restored = assignments.find((a) =>
-      String(a.id) === restoreSelectedRef.assignmentId &&
-      String(a.courseId ?? "") === restoreSelectedRef.courseId
-    );
-    if (restored) setSelectedAssignment(restored);
-  }, [assignments, restoreSelectedRef, sessionHydrated]);
+    if (!sessionHydrated || assignments.length === 0 || restoredByTabRef.current) return;
+    restoredByTabRef.current = true;
 
+    const restored: Partial<Record<Tab, CanvasAssignment>> = {};
+    for (const [t, ref] of Object.entries(restoreByTab) as [Tab, { courseId: string; assignmentId: string } | null | undefined][]) {
+      if (!ref) continue;
+      const found = assignments.find(
+        (a) => String(a.id) === ref.assignmentId && String(a.courseId ?? "") === ref.courseId
+      );
+      if (found) restored[t] = found;
+    }
+    if (Object.keys(restored).length > 0) {
+      setSelectedByTab((prev) => ({ ...prev, ...restored }));
+    }
+  }, [assignments, restoreByTab, sessionHydrated]);
+
+  // Persist session state whenever tab, per-tab selections, or detail sessions change
   useEffect(() => {
     if (!sessionHydrated) return;
-    const payload = {
-      tab,
-      selectedAssignment: selectedAssignment
-        ? { courseId: String(selectedAssignment.courseId ?? ""), assignmentId: String(selectedAssignment.id) }
-        : null,
-      detailByAssignment,
-    };
-    void saveUiSession(payload);
-  }, [tab, selectedAssignment, detailByAssignment, sessionHydrated]);
+    const selectedRefs: Partial<Record<Tab, { courseId: string; assignmentId: string } | null>> = {};
+    for (const [t, a] of Object.entries(selectedByTab) as [Tab, CanvasAssignment | null | undefined][]) {
+      selectedRefs[t] = a
+        ? { courseId: String(a.courseId ?? ""), assignmentId: String(a.id) }
+        : null;
+    }
+    void saveUiSession({ tab, selectedByTab: selectedRefs, detailByAssignment });
+  }, [tab, selectedByTab, detailByAssignment, sessionHydrated]);
 
   useEffect(() => {
     if (!jwt) return;
@@ -193,6 +210,25 @@ export default function App() {
     ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : (user?.email?.slice(0, 2).toUpperCase() ?? "??");
 
+  // Build per-tab detail view props helper
+  const detailProps = (t: Tab, a: CanvasAssignment) => {
+    const key = assignmentKey(a);
+    return {
+      key: `${a.courseId ?? ""}-${a.id}`,
+      assignment: a,
+      courseId: a.courseId ?? String(a.id),
+      assignmentId: String(a.id),
+      jwt: jwt!,
+      onBack: () => setSelectedForTab(t, null),
+      onAnalysisDone: handleAnalysisDone,
+      initialSession: detailByAssignment[key],
+      onSessionChange: (session: AssignmentDetailSession) => {
+        setDetailByAssignment((prev) => ({ ...prev, [key]: session }));
+      },
+      autoAnalyze: pendingAnalyzeKey === key,
+    };
+  };
+
   return (
     <div className="w-[390px] h-[600px] bg-background flex flex-col overflow-hidden">
       <header className="flex flex-col border-b border-border shrink-0 bg-card">
@@ -217,82 +253,82 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 p-4 overflow-hidden">
-        {selectedAssignment ? (
-          <AssignmentDetailView
-            key={`${selectedAssignment.courseId ?? ""}-${selectedAssignment.id}`}
-            assignment={selectedAssignment}
-            courseId={selectedAssignment.courseId ?? String(selectedAssignment.id)}
-            assignmentId={String(selectedAssignment.id)}
-            jwt={jwt!}
-            onBack={() => setSelectedAssignment(null)}
-            onAnalysisDone={handleAnalysisDone}
-            initialSession={detailByAssignment[assignmentKey(selectedAssignment)]}
-            onSessionChange={(session) => {
-              const key = assignmentKey(selectedAssignment);
-              setDetailByAssignment((prev) => ({ ...prev, [key]: session }));
-            }}
-            autoAnalyze={pendingAnalyzeKey === assignmentKey(selectedAssignment)}
-          />
-        ) : (
-          <>
-            {tab === "today" && (
-              <TodayView
-                displayName={displayName}
-                assignments={assignments}
-                loading={assignmentsLoading}
-                error={assignmentsError}
-                onRetry={refetchAssignments}
-                analyzedKeys={analyzedKeys}
-                onSelectAssignment={setSelectedAssignment}
-              />
-            )}
-            {tab === "plan" && (
-              <PlanView
-                assignments={assignments}
-                loading={assignmentsLoading}
-                analyzedKeys={analyzedKeys}
-                onSelectAssignment={setSelectedAssignment}
-              />
-            )}
-            {tab === "me" && (
-              canvasEdit ? (
-                <EditCanvasView
-                  jwt={jwt!}
-                  currentBaseUrl={meData?.canvasBaseUrl ?? null}
-                  onBack={() => setCanvasEdit(false)}
-                  onSaved={async () => {
-                    setCanvasEdit(false);
-                    if (jwt) {
-                      try {
-                        const me = await apiFetch<MeResponse>("/auth/me", {}, jwt);
-                        applyMe(me);
-                      } catch { /* non-fatal */ }
-                    }
-                    refetchAssignments();
-                  }}
-                />
-              ) : (
-                <MeView
-                  user={user}
-                  meData={meData}
-                  cachedAvatarUrl={avatarUrl}
-                  assignmentCount={assignments.length}
-                  analyzedCount={analyzedKeys.size}
-                  courseCount={new Set(assignments.map((a) => a.courseId).filter(Boolean)).size}
-                  onLogout={async () => {
-                    await clearProfile();
-                    logout();
-                  }}
-                  onEditCanvas={() => setCanvasEdit(true)}
-                />
-              )
-            )}
-          </>
-        )}
+      {/*
+        All three tabs are always mounted so in-progress streams survive tab switches.
+        Only the active tab is visible; hidden ones use display:none via the `hidden` class.
+        Each tab fills the main area via absolute inset-0 so height is always correct.
+      */}
+      <main className="flex-1 min-h-0 overflow-hidden relative">
+
+        {/* Today tab */}
+        <div className={cn("absolute inset-0 p-4 overflow-hidden", tab !== "today" && "hidden")}>
+          {selectedByTab.today ? (
+            <AssignmentDetailView {...detailProps("today", selectedByTab.today)} />
+          ) : (
+            <TodayView
+              displayName={displayName}
+              assignments={assignments}
+              loading={assignmentsLoading}
+              error={assignmentsError}
+              onRetry={refetchAssignments}
+              analyzedKeys={analyzedKeys}
+              onSelectAssignment={(a) => setSelectedForTab("today", a)}
+            />
+          )}
+        </div>
+
+        {/* Plan tab */}
+        <div className={cn("absolute inset-0 p-4 overflow-hidden", tab !== "plan" && "hidden")}>
+          {selectedByTab.plan ? (
+            <AssignmentDetailView {...detailProps("plan", selectedByTab.plan)} />
+          ) : (
+            <PlanView
+              assignments={assignments}
+              loading={assignmentsLoading}
+              analyzedKeys={analyzedKeys}
+              onSelectAssignment={(a) => setSelectedForTab("plan", a)}
+            />
+          )}
+        </div>
+
+        {/* Me tab */}
+        <div className={cn("absolute inset-0 p-4 overflow-hidden", tab !== "me" && "hidden")}>
+          {canvasEdit ? (
+            <EditCanvasView
+              jwt={jwt!}
+              currentBaseUrl={meData?.canvasBaseUrl ?? null}
+              onBack={() => setCanvasEdit(false)}
+              onSaved={async () => {
+                setCanvasEdit(false);
+                if (jwt) {
+                  try {
+                    const me = await apiFetch<MeResponse>("/auth/me", {}, jwt);
+                    applyMe(me);
+                  } catch { /* non-fatal */ }
+                }
+                refetchAssignments();
+              }}
+            />
+          ) : (
+            <MeView
+              user={user}
+              meData={meData}
+              cachedAvatarUrl={avatarUrl}
+              assignmentCount={assignments.length}
+              analyzedCount={analyzedKeys.size}
+              courseCount={new Set(assignments.map((a) => a.courseId).filter(Boolean)).size}
+              onLogout={async () => {
+                await clearProfile();
+                logout();
+              }}
+              onEditCanvas={() => setCanvasEdit(true)}
+            />
+          )}
+        </div>
+
       </main>
 
-      <BottomNav active={tab} onChange={(t) => { setCanvasEdit(false); setSelectedAssignment(null); setTab(t); }} />
+      <BottomNav active={tab} onChange={(t) => { setCanvasEdit(false); setTab(t); }} />
     </div>
   );
 }

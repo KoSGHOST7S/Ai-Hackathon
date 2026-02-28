@@ -2,7 +2,7 @@ import type { Tab } from "@/components/BottomNav";
 import type { SubPage } from "@/hooks/useSubPage";
 import { storageGet, storageSet } from "./storage";
 
-const UI_SESSION_KEY = "ui_session_v1";
+const UI_SESSION_KEY = "ui_session_v2";
 
 export interface AssignmentRef {
   courseId: string;
@@ -17,13 +17,13 @@ export interface AssignmentDetailSession {
 
 export interface UiSessionState {
   tab: Tab;
-  selectedAssignment: AssignmentRef | null;
+  selectedByTab: Partial<Record<Tab, AssignmentRef | null>>;
   detailByAssignment: Record<string, AssignmentDetailSession>;
 }
 
 const DEFAULT_SESSION: UiSessionState = {
   tab: "today",
-  selectedAssignment: null,
+  selectedByTab: {},
   detailByAssignment: {},
 };
 
@@ -40,29 +40,58 @@ function isValidSubPage(value: unknown): value is SubPage | null {
 
 function sanitize(input: unknown): UiSessionState {
   if (!input || typeof input !== "object") return DEFAULT_SESSION;
-  const raw = input as Partial<UiSessionState>;
-  const tab = raw.tab === "today" || raw.tab === "plan" || raw.tab === "me" ? raw.tab : "today";
-  const selected = raw.selectedAssignment;
-  const selectedAssignment = selected &&
-    typeof selected.courseId === "string" &&
-    typeof selected.assignmentId === "string"
-    ? { courseId: selected.courseId, assignmentId: selected.assignmentId }
-    : null;
+  const raw = input as Record<string, unknown>;
 
-  const detailByAssignment: Record<string, AssignmentDetailSession> = {};
-  if (raw.detailByAssignment && typeof raw.detailByAssignment === "object") {
-    for (const [key, value] of Object.entries(raw.detailByAssignment)) {
-      if (!value || typeof value !== "object") continue;
-      const candidate = value as Partial<AssignmentDetailSession>;
-      const checked = Array.isArray(candidate.checkedMilestones)
-        ? candidate.checkedMilestones.filter((n): n is number => typeof n === "number" && n >= 0)
-        : [];
-      const subPage = isValidSubPage(candidate.subPage) ? candidate.subPage : null;
-      detailByAssignment[key] = { checkedMilestones: checked, subPage, wasAnalyzing: candidate.wasAnalyzing === true };
+  const tab =
+    raw.tab === "today" || raw.tab === "plan" || raw.tab === "me"
+      ? raw.tab
+      : "today";
+
+  const selectedByTab: Partial<Record<Tab, AssignmentRef | null>> = {};
+  const rawByTab = raw.selectedByTab;
+  if (rawByTab && typeof rawByTab === "object") {
+    for (const t of ["today", "plan", "me"] as Tab[]) {
+      const sel = (rawByTab as Record<string, unknown>)[t];
+      if (
+        sel &&
+        typeof sel === "object" &&
+        typeof (sel as Record<string, unknown>).courseId === "string" &&
+        typeof (sel as Record<string, unknown>).assignmentId === "string"
+      ) {
+        selectedByTab[t] = {
+          courseId: (sel as Record<string, unknown>).courseId as string,
+          assignmentId: (sel as Record<string, unknown>).assignmentId as string,
+        };
+      } else {
+        selectedByTab[t] = null;
+      }
     }
   }
 
-  return { tab, selectedAssignment, detailByAssignment };
+  const detailByAssignment: Record<string, AssignmentDetailSession> = {};
+  if (raw.detailByAssignment && typeof raw.detailByAssignment === "object") {
+    for (const [key, value] of Object.entries(
+      raw.detailByAssignment as Record<string, unknown>
+    )) {
+      if (!value || typeof value !== "object") continue;
+      const candidate = value as Partial<AssignmentDetailSession>;
+      const checked = Array.isArray(candidate.checkedMilestones)
+        ? candidate.checkedMilestones.filter(
+            (n): n is number => typeof n === "number" && n >= 0
+          )
+        : [];
+      const subPage = isValidSubPage(candidate.subPage)
+        ? candidate.subPage
+        : null;
+      detailByAssignment[key] = {
+        checkedMilestones: checked,
+        subPage,
+        wasAnalyzing: candidate.wasAnalyzing === true,
+      };
+    }
+  }
+
+  return { tab, selectedByTab, detailByAssignment };
 }
 
 export async function loadUiSession(): Promise<UiSessionState> {
