@@ -51,9 +51,14 @@ def ensure_requirement_coverage(requirements: Requirements, milestones: Mileston
         patched.append(Milestone(
             order=len(patched) + 1,
             title=f"Complete requirement {req.id}",
-            description=f"Directly implement and verify this explicit assignment requirement: {req.text}. Covers: {req.id}",
+            description=f"## What to focus on\n\nDirectly implement and verify this explicit assignment requirement: {req.text}.\n\n## Grading tips\n\nMake sure your submission clearly demonstrates this requirement — graders will check for it explicitly.",
             estimatedHours=1.0,
-            deliverable=f"Completed requirement evidence for {req.id}",
+            deliverable=f"Completed evidence for requirement {req.id}",
+            tasks=[
+                f"Re-read the assignment requirement: {req.text}",
+                f"Implement the required work for {req.id}",
+                "Verify your submission clearly addresses this requirement",
+            ],
         ))
     return _reorder_milestones(patched)
 
