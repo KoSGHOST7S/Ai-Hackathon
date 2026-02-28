@@ -19,7 +19,7 @@ router.get("/assignments", requireAuth, async (req: AuthRequest, res: Response) 
         try {
           const assignments = await canvasFetch(
             creds.baseUrl, creds.apiKey,
-            `/courses/${course.id}/assignments?per_page=50&order_by=due_at`
+            `/courses/${course.id}/assignments?per_page=50&order_by=due_at&include[]=submission`
           );
           return (assignments as Array<Record<string, unknown>>).map((a) => ({
             ...a,

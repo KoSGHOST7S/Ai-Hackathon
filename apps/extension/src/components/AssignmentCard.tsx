@@ -1,7 +1,7 @@
 import { Clock, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { CanvasAssignment } from "@/types/analysis";
+import type { CanvasAssignment, CanvasSubmission } from "@/types/analysis";
 
 interface Props {
   assignment: CanvasAssignment;
@@ -10,18 +10,38 @@ interface Props {
   onClick: () => void;
 }
 
-function dueBadge(dueAt: string | null): { label: string; variant: "secondary" | "default" | "muted" } {
+type BadgeVariant = "secondary" | "default" | "muted" | "success" | "warning";
+
+function isSubmitted(sub: CanvasSubmission | null | undefined): boolean {
+  return (
+    sub?.workflow_state === "submitted" ||
+    sub?.workflow_state === "graded" ||
+    sub?.workflow_state === "pending_review"
+  );
+}
+
+function dueBadge(
+  dueAt: string | null,
+  submission: CanvasSubmission | null | undefined,
+): { label: string; variant: BadgeVariant } {
+  if (isSubmitted(submission)) return { label: "Submitted", variant: "success" };
+
   if (!dueAt) return { label: "No due date", variant: "muted" };
+
   const diff = new Date(dueAt).getTime() - Date.now();
   const days = diff / (1000 * 60 * 60 * 24);
-  if (days < 0)  return { label: "Past due", variant: "secondary" };
+
+  if (days < 0) {
+    if (submission?.missing) return { label: "Missing", variant: "warning" };
+    return { label: "Past due", variant: "secondary" };
+  }
   if (days < 1)  return { label: "Due today", variant: "secondary" };
   if (days < 3)  return { label: `${Math.ceil(days)}d left`, variant: "default" };
   return { label: `${Math.ceil(days)}d left`, variant: "muted" };
 }
 
 export function AssignmentCard({ assignment, hasAnalysis, isActive, onClick }: Props) {
-  const due = dueBadge(assignment.due_at);
+  const due = dueBadge(assignment.due_at, assignment.submission);
   return (
     <Card
       className={`shadow-none cursor-pointer transition-colors hover:bg-muted/40 ${isActive ? "border-primary" : ""}`}

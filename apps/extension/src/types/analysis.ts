@@ -1,3 +1,9 @@
+export interface CanvasSubmission {
+  workflow_state: "submitted" | "unsubmitted" | "graded" | "pending_review";
+  missing: boolean;
+  late: boolean;
+}
+
 export interface CanvasAssignment {
   id: number;
   name: string;
@@ -6,6 +12,7 @@ export interface CanvasAssignment {
   points_possible: number;
   submission_types: string[];
   workflow_state: string;
+  submission?: CanvasSubmission | null;
   courseId?: string;
   courseName?: string;
   courseCode?: string;
