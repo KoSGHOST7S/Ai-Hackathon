@@ -83,7 +83,7 @@ export function OnboardingStep2({ isActive, jwt, onComplete }: Props) {
           <input
             id="ob2-url"
             type="url"
-            placeholder="https://bw.instructure.com"
+            placeholder="https://example.instructure.com"
             value={canvasBaseUrl}
             onChange={(e) => { setCanvasBaseUrl(e.target.value); setError(""); }}
             className={inputClass}

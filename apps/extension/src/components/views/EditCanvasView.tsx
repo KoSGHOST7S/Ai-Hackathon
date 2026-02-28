@@ -50,7 +50,7 @@ export function EditCanvasView({ jwt, currentBaseUrl, onBack, onSaved }: Props) 
           <input
             id="edit-canvas-url"
             type="url"
-            placeholder="https://bw.instructure.com"
+            placeholder="https://example.instructure.com"
             value={canvasBaseUrl}
             onChange={(e) => { setCanvasBaseUrl(e.target.value); setError(""); }}
             className={inputClass}
