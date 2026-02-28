@@ -1,12 +1,13 @@
-import { Clock, Plus } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { assignments, stats } from "@/data/mock";
-import type { Status } from "@/types";
+import { Loader2 } from "lucide-react";
+import { AssignmentCard } from "@/components/AssignmentCard";
+import type { CanvasAssignment, AnalysisResult } from "@/types/analysis";
 
 interface Props {
   displayName?: string | null;
+  assignments: CanvasAssignment[];
+  loading: boolean;
+  analysisResults: Record<string, AnalysisResult>;
+  onSelectAssignment: (a: CanvasAssignment) => void;
 }
 
 function greeting() {
@@ -16,92 +17,55 @@ function greeting() {
   return "Good evening";
 }
 
-function statusVariant(status: Status) {
-  if (status === "Urgent") return "secondary" as const;
-  if (status === "In Progress") return "default" as const;
-  if (status === "Done") return "accent" as const;
-  return "muted" as const;
+function isToday(dueAt: string | null): boolean {
+  if (!dueAt) return false;
+  const d = new Date(dueAt);
+  const t = new Date();
+  return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
 }
 
-export function TodayView({ displayName }: Props) {
+export function TodayView({ displayName, assignments, loading, analysisResults, onSelectAssignment }: Props) {
   const firstName = displayName ? displayName.split(" ")[0] : null;
-  const [focus, ...rest] = assignments;
-  const more = rest.slice(0, 2);
+  const dueToday = assignments.filter((a) => isToday(a.due_at)).length;
+  const upcoming = [...assignments]
+    .filter((a) => a.due_at && new Date(a.due_at) >= new Date())
+    .sort((a, b) => new Date(a.due_at!).getTime() - new Date(b.due_at!).getTime())
+    .slice(0, 6);
 
   return (
-    <div className="flex flex-col gap-3 h-full">
-      {/* Greeting */}
-      <div>
+    <div className="flex flex-col gap-3 h-full overflow-hidden">
+      <div className="shrink-0">
         <h2 className="text-[15px] font-semibold text-foreground tracking-tight">
           {greeting()}{firstName ? `, ${firstName}` : ""}
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {stats.dueToday} assignment{stats.dueToday !== 1 ? "s" : ""} due today
+          {loading ? "Loading assignments…" : `${dueToday} assignment${dueToday !== 1 ? "s" : ""} due today`}
         </p>
       </div>
 
-      {/* Focus card — hero item, left accent border */}
-      <Card className="border-l-[3px] border-l-primary shadow-none">
-        <div className="p-3">
-          <div className="flex items-start justify-between mb-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Focus
-            </span>
-            <Badge variant={statusVariant(focus.status)}>{focus.status}</Badge>
+      <div className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0">
+        {loading && (
+          <div className="flex items-center justify-center flex-1">
+            <Loader2 className="h-5 w-5 text-muted-foreground animate-spin" />
           </div>
-          <p className="font-semibold text-sm text-foreground leading-snug">{focus.title}</p>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
-            <span className="text-xs text-muted-foreground">
-              {focus.course} · {focus.dueLabel}
-            </span>
+        )}
+        {!loading && upcoming.length === 0 && (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-sm text-muted-foreground">No upcoming assignments</p>
           </div>
-        </div>
-      </Card>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          { label: "Pending", value: stats.pending },
-          { label: "Due Today", value: stats.dueToday },
-          { label: "Done", value: stats.doneThisWeek },
-        ].map((s) => (
-          <Card key={s.label} className="shadow-none">
-            <div className="py-2.5 px-2 text-center">
-              <p className="text-xl font-bold text-primary leading-none">{s.value}</p>
-              <p className="text-[10px] text-muted-foreground mt-1 leading-none">{s.label}</p>
-            </div>
-          </Card>
-        ))}
+        )}
+        {!loading && upcoming.map((a) => {
+          const key = `${a.courseId ?? ""}-${a.id}`;
+          return (
+            <AssignmentCard
+              key={key}
+              assignment={a}
+              hasAnalysis={key in analysisResults}
+              onClick={() => onSelectAssignment(a)}
+            />
+          );
+        })}
       </div>
-
-      {/* More assignments */}
-      <Card className="shadow-none flex-1">
-        <div className="p-3 flex flex-col gap-0">
-          {more.map((item, i) => (
-            <div key={item.id}>
-              {i > 0 && <div className="h-px bg-border my-2.5" />}
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{item.title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {item.course} · {item.dueLabel}
-                  </p>
-                </div>
-                <Badge variant={statusVariant(item.status)} className="shrink-0 mt-0.5">
-                  {item.status}
-                </Badge>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      {/* CTA */}
-      <Button variant="secondary" className="w-full gap-2 h-9">
-        <Plus className="h-3.5 w-3.5" />
-        Add Assignment
-      </Button>
     </div>
   );
 }
