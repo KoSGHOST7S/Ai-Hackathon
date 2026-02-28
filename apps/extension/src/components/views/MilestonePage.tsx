@@ -64,6 +64,8 @@ export function MilestonePage({
                 <button
                   key={idx}
                   onClick={() => toggleTask(idx)}
+                  aria-pressed={checkedTasks.has(idx)}
+                  aria-label={task}
                   className="flex items-start gap-2 w-full text-left group"
                 >
                   {checkedTasks.has(idx)
