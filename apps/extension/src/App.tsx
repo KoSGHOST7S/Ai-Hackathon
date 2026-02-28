@@ -24,7 +24,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("today");
   const [canvasEdit, setCanvasEdit] = useState(false);
   const { jwt, user, isLoading, logout, signup, login } = useAuth();
-  const { canvasName, canvasAvatarUrl, setProfile, clearProfile } = useCanvasProfile();
+  const { canvasName, canvasAvatarUrl, canvasAvatarDataUrl, setProfile, clearProfile } = useCanvasProfile();
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("account");
   const [meData, setMeData] = useState<MeResponse | null>(null);
   const [meCheckDone, setMeCheckDone] = useState(false);
@@ -209,7 +209,7 @@ export default function App() {
 
   // Use cached profile values — available immediately from storage, no API wait
   const displayName = canvasName ?? meData?.canvasName ?? null;
-  const avatarUrl = canvasAvatarUrl ?? meData?.canvasAvatarUrl ?? null;
+  const avatarUrl = canvasAvatarDataUrl ?? canvasAvatarUrl ?? meData?.canvasAvatarUrl ?? null;
   const initials = displayName
     ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : (user?.email?.slice(0, 2).toUpperCase() ?? "??");
