@@ -35,14 +35,9 @@ jobs:
         env:
           VITE_API_URL: https://api.assignmint.com
 
-      - name: Package zip
-        run: |
-          cd apps/extension/dist
-          zip -r ../../../assignmint-extension.zip .
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: assignmint-extension
-          path: assignmint-extension.zip
+          path: apps/extension/dist/
           retention-days: 30
