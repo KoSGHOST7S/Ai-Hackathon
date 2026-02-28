@@ -33,4 +33,4 @@ RUN pnpm --filter server build
 
 EXPOSE 3000
 
-CMD ["node", "apps/server/dist/index.js"]
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy --schema apps/server/prisma/schema.prisma && node apps/server/dist/index.js"]
