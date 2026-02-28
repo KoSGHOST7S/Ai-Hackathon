@@ -16,6 +16,7 @@ model User {
   canvasName        String?
   canvasAvatarUrl   String?
   assignments       Assignment[]
+  analysisResults   AnalysisResult[]
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 }
@@ -31,4 +32,19 @@ model Assignment {
   updatedAt          DateTime @updatedAt
 
   @@unique([userId, canvasAssignmentId])
+}
+
+model AnalysisResult {
+  id           String   @id @default(cuid())
+  userId       String
+  courseId     String
+  assignmentId String
+  rubric       Json
+  milestones   Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId, assignmentId])
 }
