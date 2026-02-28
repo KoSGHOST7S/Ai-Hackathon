@@ -14,9 +14,10 @@ interface Props {
   assignmentId: string;
   jwt: string;
   onBack: () => void;
+  onAnalysisDone?: (courseId: string, assignmentId: string) => void;
 }
 
-export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, onBack }: Props) {
+export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, onBack, onAnalysisDone }: Props) {
   const { result, status, error, step, analyze, loadExisting } = useAnalysis(jwt);
   const [expandedCriteria, setExpandedCriteria] = useState<Set<number>>(new Set([0]));
   const [checkedMilestones, setCheckedMilestones] = useState<Set<number>>(new Set());
@@ -25,6 +26,13 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
     loadExisting(courseId, assignmentId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, assignmentId]);
+
+  useEffect(() => {
+    if (status === "done" && result) {
+      onAnalysisDone?.(courseId, assignmentId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, result]);
 
   const toggleCriterion = (i: number) =>
     setExpandedCriteria((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });

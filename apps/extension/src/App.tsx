@@ -10,9 +10,9 @@ import { useCanvasUrl } from "@/hooks/useCanvasUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanvasProfile } from "@/hooks/useCanvasProfile";
 import { useAssignments } from "@/hooks/useAssignments";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, fetchAnalysisResults } from "@/lib/api";
 import type { MeResponse } from "shared";
-import type { CanvasAssignment, AnalysisResult } from "@/types/analysis";
+import type { CanvasAssignment } from "@/types/analysis";
 
 const VIEW_TITLE: Record<Tab, string> = {
   today: "Today",
@@ -31,7 +31,7 @@ export default function App() {
   const [meCheckDone, setMeCheckDone] = useState(false);
   const { assignmentInfo } = useCanvasUrl();
   const [selectedAssignment, setSelectedAssignment] = useState<CanvasAssignment | null>(null);
-  const [analysisResults] = useState<Record<string, AnalysisResult>>({});
+  const [analyzedKeys, setAnalyzedKeys] = useState<Set<string>>(new Set());
   const { assignments, loading: assignmentsLoading } = useAssignments(jwt);
 
   const applyMe = useCallback((me: MeResponse) => {
@@ -64,6 +64,19 @@ export default function App() {
     );
     if (match) setSelectedAssignment(match);
   }, [assignmentInfo, assignments]);
+
+  useEffect(() => {
+    if (!jwt) return;
+    fetchAnalysisResults(jwt)
+      .then((results) => {
+        setAnalyzedKeys(new Set(results.map((r) => `${r.courseId}-${r.assignmentId}`)));
+      })
+      .catch(() => { /* non-fatal */ });
+  }, [jwt]);
+
+  const handleAnalysisDone = (courseId: string, assignmentId: string) => {
+    setAnalyzedKeys((prev) => new Set([...prev, `${courseId}-${assignmentId}`]));
+  };
 
   if (isLoading || !meCheckDone) {
     return (
@@ -144,6 +157,7 @@ export default function App() {
             assignmentId={String(selectedAssignment.id)}
             jwt={jwt!}
             onBack={() => setSelectedAssignment(null)}
+            onAnalysisDone={handleAnalysisDone}
           />
         ) : (
           <>
@@ -152,7 +166,7 @@ export default function App() {
                 displayName={displayName}
                 assignments={assignments}
                 loading={assignmentsLoading}
-                analysisResults={analysisResults}
+                analyzedKeys={analyzedKeys}
                 onSelectAssignment={setSelectedAssignment}
               />
             )}

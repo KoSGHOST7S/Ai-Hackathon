@@ -159,6 +159,20 @@ router.post("/analyze/stream", requireAuth, async (req: AuthRequest, res: Respon
   }
 });
 
+// GET /assignments/results — list all analyzed assignment IDs for current user
+router.get("/results", requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const results = await prisma.analysisResult.findMany({
+      where: { userId: req.userId! },
+      select: { courseId: true, assignmentId: true, updatedAt: true },
+    });
+    res.json(results);
+  } catch (err) {
+    console.error("get results error:", err);
+    res.status(500).json({ error: "Failed to retrieve results" });
+  }
+});
+
 // GET /assignments/:courseId/:assignmentId/result
 router.get("/:courseId/:assignmentId/result", requireAuth, async (req: AuthRequest, res: Response) => {
   const { courseId, assignmentId } = req.params;

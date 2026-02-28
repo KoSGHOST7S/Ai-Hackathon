@@ -1,12 +1,12 @@
 import { Loader2 } from "lucide-react";
 import { AssignmentCard } from "@/components/AssignmentCard";
-import type { CanvasAssignment, AnalysisResult } from "@/types/analysis";
+import type { CanvasAssignment } from "@/types/analysis";
 
 interface Props {
   displayName?: string | null;
   assignments: CanvasAssignment[];
   loading: boolean;
-  analysisResults: Record<string, AnalysisResult>;
+  analyzedKeys: Set<string>;
   onSelectAssignment: (a: CanvasAssignment) => void;
 }
 
@@ -24,7 +24,7 @@ function isToday(dueAt: string | null): boolean {
   return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
 }
 
-export function TodayView({ displayName, assignments, loading, analysisResults, onSelectAssignment }: Props) {
+export function TodayView({ displayName, assignments, loading, analyzedKeys, onSelectAssignment }: Props) {
   const firstName = displayName ? displayName.split(" ")[0] : null;
   const dueToday = assignments.filter((a) => isToday(a.due_at)).length;
   const upcoming = [...assignments]
@@ -60,7 +60,7 @@ export function TodayView({ displayName, assignments, loading, analysisResults, 
             <AssignmentCard
               key={key}
               assignment={a}
-              hasAnalysis={key in analysisResults}
+              hasAnalysis={analyzedKeys.has(key)}
               onClick={() => onSelectAssignment(a)}
             />
           );

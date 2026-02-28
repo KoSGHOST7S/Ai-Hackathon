@@ -48,6 +48,16 @@ export type StreamEvent =
   | { type: "done";     result: AnalysisResult }
   | { type: "error";    error: string };
 
+export interface AnalysisResultMeta {
+  courseId: string;
+  assignmentId: string;
+  updatedAt: string;
+}
+
+export async function fetchAnalysisResults(jwt: string): Promise<AnalysisResultMeta[]> {
+  return apiFetch<AnalysisResultMeta[]>("/assignments/results", {}, jwt);
+}
+
 export async function* streamAnalysis(
   jwt: string,
   courseId: string,
