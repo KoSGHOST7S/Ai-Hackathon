@@ -13,6 +13,7 @@ import { useCanvasProfile } from "@/hooks/useCanvasProfile";
 import { useAssignments } from "@/hooks/useAssignments";
 import { apiFetch, fetchAnalysisResults } from "@/lib/api";
 import { loadUiSession, saveUiSession, type AssignmentDetailSession } from "@/lib/uiSession";
+import { storageGet, storageRemove } from "@/lib/storage";
 import type { MeResponse } from "shared";
 import type { CanvasAssignment } from "@/types/analysis";
 
@@ -38,6 +39,7 @@ export default function App() {
   const [detailByAssignment, setDetailByAssignment] = useState<Record<string, AssignmentDetailSession>>({});
   const [sessionHydrated, setSessionHydrated] = useState(false);
   const [restoreSelectedRef, setRestoreSelectedRef] = useState<{ courseId: string; assignmentId: string } | null>(null);
+  const [pendingTarget, setPendingTarget] = useState<{ courseId: string; assignmentId: string } | null>(null);
   const restoredSelectionRef = useRef(false);
   const [pendingAnalyzeKey, setPendingAnalyzeKey] = useState<string | null>(null);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refetch: refetchAssignments } = useAssignments(jwt);
@@ -65,15 +67,19 @@ export default function App() {
       .finally(() => setMeCheckDone(true));
   }, [jwt, applyMe]);
 
-  // Auto-navigate to detected Canvas assignment
+  // Auto-navigate to detected Canvas assignment (from active tab URL or content-script deep-link)
   useEffect(() => {
-    if (!assignmentInfo || assignments.length === 0) return;
+    const target = pendingTarget ?? assignmentInfo;
+    if (!target || assignments.length === 0) return;
     const match = assignments.find(
-      (a) => String(a.id) === assignmentInfo.assignmentId &&
-             (a.courseId === assignmentInfo.courseId || String(a.courseId) === assignmentInfo.courseId)
+      (a) => String(a.id) === target.assignmentId &&
+             String(a.courseId ?? "") === target.courseId
     );
-    if (match) setSelectedAssignment(match);
-  }, [assignmentInfo, assignments]);
+    if (match) {
+      setSelectedAssignment(match);
+      if (pendingTarget) setPendingTarget(null);
+    }
+  }, [assignmentInfo, pendingTarget, assignments]);
 
   useEffect(() => {
     loadUiSession()
@@ -83,6 +89,20 @@ export default function App() {
         setRestoreSelectedRef(session.selectedAssignment);
       })
       .finally(() => setSessionHydrated(true));
+  }, []);
+
+  // Read and immediately clear any pending deep-link target from the content script
+  useEffect(() => {
+    storageGet("pendingAssignment").then((raw) => {
+      if (!raw || typeof raw !== "string") return;
+      try {
+        const parsed = JSON.parse(raw) as { courseId?: string; assignmentId?: string };
+        if (parsed.courseId && parsed.assignmentId) {
+          setPendingTarget({ courseId: String(parsed.courseId), assignmentId: String(parsed.assignmentId) });
+        }
+      } catch { /* malformed — ignore */ }
+    });
+    storageRemove("pendingAssignment");
   }, []);
 
   // Check if popup was opened via the "Open in Assignmint" button on a Canvas page
