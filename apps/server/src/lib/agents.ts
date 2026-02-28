@@ -6,6 +6,10 @@ export interface AgentsAnalyzeRequest {
   points_possible: number;
   submission_types: string[];
   due_at: string | null;
+  grading_type: string;
+  allowed_attempts: number | null;
+  attachment_names: string[];
+  canvas_rubric_summary: string | null;
 }
 
 export interface RubricLevel {

@@ -24,12 +24,40 @@ router.post("/analyze", requireAuth, async (req: AuthRequest, res: Response) => 
       .replace(/\s+/g, " ")
       .trim();
 
+    // Extract Canvas rubric summary if present
+    let canvas_rubric_summary: string | null = null;
+    if (Array.isArray(assignment.rubric) && assignment.rubric.length > 0) {
+      canvas_rubric_summary = (assignment.rubric as Array<{ description?: string; points?: number }>)
+        .map((c) => `- ${c.description ?? "criterion"} (${c.points ?? 0} pts)`)
+        .join("\n");
+    }
+
+    // Try to fetch file attachment names from the student's own submission (non-fatal)
+    let attachment_names: string[] = [];
+    try {
+      const submission = await canvasFetch(
+        creds.baseUrl, creds.apiKey,
+        `/courses/${courseId}/assignments/${assignmentId}/submissions/self`
+      );
+      if (Array.isArray(submission?.attachments)) {
+        attachment_names = (submission.attachments as Array<{ display_name?: string }>)
+          .map((f) => f.display_name ?? "")
+          .filter(Boolean);
+      }
+    } catch {
+      // non-fatal — student may not have submitted yet
+    }
+
     const result = await callAgentsService({
       name: assignment.name,
       description,
       points_possible: assignment.points_possible ?? 100,
       submission_types: assignment.submission_types ?? [],
       due_at: assignment.due_at ?? null,
+      grading_type: assignment.grading_type ?? "points",
+      allowed_attempts: assignment.allowed_attempts ?? null,
+      attachment_names,
+      canvas_rubric_summary,
     });
 
     const saved = await prisma.analysisResult.upsert({
