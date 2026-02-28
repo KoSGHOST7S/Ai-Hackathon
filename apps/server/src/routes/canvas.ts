@@ -23,7 +23,7 @@ router.get("/assignments", requireAuth, async (req: AuthRequest, res: Response) 
           );
           return (assignments as Array<Record<string, unknown>>).map((a) => ({
             ...a,
-            courseId: course.id,
+              courseId: String(course.id),
             courseName: course.name,
             courseCode: course.course_code,
           }));

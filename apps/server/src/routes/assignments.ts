@@ -12,10 +12,10 @@ router.post("/analyze", requireAuth, async (req: AuthRequest, res: Response) => 
   if (!courseId || !assignmentId) {
     res.status(400).json({ error: "courseId and assignmentId required" }); return;
   }
-  const creds = await getCanvasCredentials(req.userId!);
-  if (!creds) { res.status(400).json({ error: "Canvas not configured" }); return; }
-
   try {
+    const creds = await getCanvasCredentials(req.userId!);
+    if (!creds) { res.status(400).json({ error: "Canvas not configured" }); return; }
+
     const assignment = await canvasFetch(creds.baseUrl, creds.apiKey,
       `/courses/${courseId}/assignments/${assignmentId}`);
 
