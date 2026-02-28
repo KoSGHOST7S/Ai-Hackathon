@@ -7,6 +7,7 @@ import { MeView } from "@/components/views/MeView";
 import { EditCanvasView } from "@/components/views/EditCanvasView";
 import { SetupView } from "@/components/views/SetupView";
 import { AssignmentDetailView } from "@/components/views/AssignmentDetailView";
+import { SlideTransition } from "@/components/transitions/SlideTransition";
 import { useCanvasUrl } from "@/hooks/useCanvasUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanvasProfile } from "@/hooks/useCanvasProfile";
@@ -14,6 +15,7 @@ import { useAssignments } from "@/hooks/useAssignments";
 import { apiFetch, API_RESPONSE_CACHE_TTL_MS, fetchAnalysisResults } from "@/lib/api";
 import { loadUiSession, saveUiSession, type AssignmentDetailSession } from "@/lib/uiSession";
 import { storageGet, storageRemove } from "@/lib/storage";
+import type { SlideDirection } from "@/lib/slideTransitionLogic";
 import { cn } from "@/lib/utils";
 import type { MeResponse } from "shared";
 import type { CanvasAssignment } from "@/types/analysis";
@@ -43,13 +45,44 @@ export default function App() {
 
   const [pendingTarget, setPendingTarget] = useState<{ courseId: string; assignmentId: string } | null>(null);
   const [pendingAnalyzeKey, setPendingAnalyzeKey] = useState<string | null>(null);
+  const [detailDirectionByTab, setDetailDirectionByTab] = useState<Record<"today" | "plan", SlideDirection>>({
+    today: "forward",
+    plan: "forward",
+  });
+  const [meDirection, setMeDirection] = useState<SlideDirection>("forward");
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refetch: refetchAssignments } = useAssignments(jwt);
 
   const assignmentKey = useCallback((a: CanvasAssignment) => `${a.courseId ?? ""}-${a.id}`, []);
+  const detailSceneKey = useCallback(
+    (a: CanvasAssignment) => `detail:${String(a.courseId ?? "")}:${String(a.id)}`,
+    []
+  );
+  const parseDetailSceneKey = useCallback((sceneKey: string) => {
+    if (!sceneKey.startsWith("detail:")) return null;
+    const [, courseId, assignmentId] = sceneKey.split(":");
+    if (typeof assignmentId !== "string") return null;
+    return { courseId: courseId ?? "", assignmentId };
+  }, []);
+  const getAssignmentFromSceneKey = useCallback((sceneKey: string) => {
+    const parsed = parseDetailSceneKey(sceneKey);
+    if (!parsed) return null;
+    return assignments.find(
+      (a) =>
+        String(a.id) === parsed.assignmentId &&
+        String(a.courseId ?? "") === parsed.courseId
+    ) ?? null;
+  }, [assignments, parseDetailSceneKey]);
 
   const setSelectedForTab = useCallback((t: Tab, a: CanvasAssignment | null) => {
     setSelectedByTab((prev) => ({ ...prev, [t]: a }));
   }, []);
+  const setSelectedForTabWithDirection = useCallback(
+    (t: "today" | "plan", a: CanvasAssignment | null, direction: SlideDirection) => {
+      setDetailDirectionByTab((prev) => ({ ...prev, [t]: direction }));
+      setSelectedForTab(t, a);
+    },
+    [setSelectedForTab]
+  );
 
   const applyMe = useCallback((me: MeResponse) => {
     setMeData(me);
@@ -83,10 +116,10 @@ export default function App() {
     );
     if (match) {
       setTab("today");
-      setSelectedForTab("today", match);
+      setSelectedForTabWithDirection("today", match, "forward");
     }
     if (pendingTarget) setPendingTarget(null);
-  }, [assignmentInfo, pendingTarget, assignments, setSelectedForTab]);
+  }, [assignmentInfo, pendingTarget, assignments, setSelectedForTabWithDirection]);
 
   // Hydrate session from storage on mount
   useEffect(() => {
@@ -215,7 +248,7 @@ export default function App() {
     : (user?.email?.slice(0, 2).toUpperCase() ?? "??");
 
   // Build per-tab detail view props helper
-  const detailProps = (t: Tab, a: CanvasAssignment) => {
+  const detailProps = (t: "today" | "plan", a: CanvasAssignment) => {
     const key = assignmentKey(a);
     return {
       key: `${a.courseId ?? ""}-${a.id}`,
@@ -223,7 +256,7 @@ export default function App() {
       courseId: a.courseId ?? String(a.id),
       assignmentId: String(a.id),
       jwt: jwt!,
-      onBack: () => setSelectedForTab(t, null),
+      onBack: () => setSelectedForTabWithDirection(t, null, "back"),
       onAnalysisDone: handleAnalysisDone,
       initialSession: detailByAssignment[key],
       onSessionChange: (session: AssignmentDetailSession) => {
@@ -232,6 +265,10 @@ export default function App() {
       autoAnalyze: pendingAnalyzeKey === key,
     };
   };
+
+  const todaySceneKey = selectedByTab.today ? detailSceneKey(selectedByTab.today) : "list";
+  const planSceneKey = selectedByTab.plan ? detailSceneKey(selectedByTab.plan) : "list";
+  const meSceneKey = canvasEdit ? "edit" : "profile";
 
   return (
     <div className="w-[390px] h-[600px] bg-background flex flex-col overflow-hidden">
@@ -266,72 +303,109 @@ export default function App() {
 
         {/* Today tab */}
         <div className={cn("absolute inset-0 p-4 overflow-hidden", tab !== "today" && "hidden")}>
-          {selectedByTab.today ? (
-            <AssignmentDetailView {...detailProps("today", selectedByTab.today)} />
-          ) : (
-            <TodayView
-              displayName={displayName}
-              assignments={assignments}
-              loading={assignmentsLoading}
-              error={assignmentsError}
-              onRetry={refetchAssignments}
-              analyzedKeys={analyzedKeys}
-              onSelectAssignment={(a) => setSelectedForTab("today", a)}
-            />
-          )}
+          <SlideTransition
+            activeKey={todaySceneKey}
+            direction={detailDirectionByTab.today}
+            renderScene={(sceneKey) => {
+              if (sceneKey === "list") {
+                return (
+                  <TodayView
+                    displayName={displayName}
+                    assignments={assignments}
+                    loading={assignmentsLoading}
+                    error={assignmentsError}
+                    onRetry={refetchAssignments}
+                    analyzedKeys={analyzedKeys}
+                    onSelectAssignment={(a) => setSelectedForTabWithDirection("today", a, "forward")}
+                  />
+                );
+              }
+
+              const assignment = getAssignmentFromSceneKey(sceneKey);
+              if (!assignment) return <div className="h-full" />;
+              return <AssignmentDetailView {...detailProps("today", assignment)} />;
+            }}
+          />
         </div>
 
         {/* Plan tab */}
         <div className={cn("absolute inset-0 p-4 overflow-hidden", tab !== "plan" && "hidden")}>
-          {selectedByTab.plan ? (
-            <AssignmentDetailView {...detailProps("plan", selectedByTab.plan)} />
-          ) : (
-            <PlanView
-              assignments={assignments}
-              loading={assignmentsLoading}
-              analyzedKeys={analyzedKeys}
-              onSelectAssignment={(a) => setSelectedForTab("plan", a)}
-            />
-          )}
+          <SlideTransition
+            activeKey={planSceneKey}
+            direction={detailDirectionByTab.plan}
+            renderScene={(sceneKey) => {
+              if (sceneKey === "list") {
+                return (
+                  <PlanView
+                    assignments={assignments}
+                    loading={assignmentsLoading}
+                    analyzedKeys={analyzedKeys}
+                    onSelectAssignment={(a) => setSelectedForTabWithDirection("plan", a, "forward")}
+                  />
+                );
+              }
+
+              const assignment = getAssignmentFromSceneKey(sceneKey);
+              if (!assignment) return <div className="h-full" />;
+              return <AssignmentDetailView {...detailProps("plan", assignment)} />;
+            }}
+          />
         </div>
 
         {/* Me tab */}
         <div className={cn("absolute inset-0 p-4 overflow-hidden", tab !== "me" && "hidden")}>
-          {canvasEdit ? (
-            <EditCanvasView
-              jwt={jwt!}
-              currentBaseUrl={meData?.canvasBaseUrl ?? null}
-              onBack={() => setCanvasEdit(false)}
-              onSaved={async () => {
-                setCanvasEdit(false);
-                if (jwt) {
-                  try {
-                    const me = await apiFetch<MeResponse>(
-                      "/auth/me",
-                      { cacheTtlMs: API_RESPONSE_CACHE_TTL_MS },
-                      jwt
-                    );
-                    applyMe(me);
-                  } catch { /* non-fatal */ }
-                }
-                refetchAssignments();
-              }}
-            />
-          ) : (
-            <MeView
-              user={user}
-              meData={meData}
-              cachedAvatarUrl={avatarUrl}
-              assignmentCount={assignments.length}
-              analyzedCount={analyzedKeys.size}
-              courseCount={new Set(assignments.map((a) => a.courseId).filter(Boolean)).size}
-              onLogout={async () => {
-                await clearProfile();
-                logout();
-              }}
-              onEditCanvas={() => setCanvasEdit(true)}
-            />
-          )}
+          <SlideTransition
+            activeKey={meSceneKey}
+            direction={meDirection}
+            renderScene={(sceneKey) => {
+              if (sceneKey === "edit") {
+                return (
+                  <EditCanvasView
+                    jwt={jwt!}
+                    currentBaseUrl={meData?.canvasBaseUrl ?? null}
+                    onBack={() => {
+                      setMeDirection("back");
+                      setCanvasEdit(false);
+                    }}
+                    onSaved={async () => {
+                      setMeDirection("back");
+                      setCanvasEdit(false);
+                      if (jwt) {
+                        try {
+                          const me = await apiFetch<MeResponse>(
+                            "/auth/me",
+                            { cacheTtlMs: API_RESPONSE_CACHE_TTL_MS },
+                            jwt
+                          );
+                          applyMe(me);
+                        } catch { /* non-fatal */ }
+                      }
+                      refetchAssignments();
+                    }}
+                  />
+                );
+              }
+
+              return (
+                <MeView
+                  user={user}
+                  meData={meData}
+                  cachedAvatarUrl={avatarUrl}
+                  assignmentCount={assignments.length}
+                  analyzedCount={analyzedKeys.size}
+                  courseCount={new Set(assignments.map((a) => a.courseId).filter(Boolean)).size}
+                  onLogout={async () => {
+                    await clearProfile();
+                    logout();
+                  }}
+                  onEditCanvas={() => {
+                    setMeDirection("forward");
+                    setCanvasEdit(true);
+                  }}
+                />
+              );
+            }}
+          />
         </div>
 
       </main>
