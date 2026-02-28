@@ -1,0 +1,25 @@
+services:
+  api:
+    restart: unless-stopped
+    ports: !reset []
+    expose:
+      - "3000"
+
+  agents:
+    restart: unless-stopped
+    ports: !reset []
+    expose:
+      - "8000"
+
+  db:
+    restart: unless-stopped
+    ports: !reset []
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}

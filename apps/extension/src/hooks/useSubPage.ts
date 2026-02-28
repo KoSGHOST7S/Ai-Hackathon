@@ -8,8 +8,8 @@ export type SubPage =
   | { type: "submit" }
   | { type: "review" };
 
-export function useSubPage() {
-  const [subPage, setSubPage] = useState<SubPage | null>(null);
+export function useSubPage(initialSubPage: SubPage | null = null) {
+  const [subPage, setSubPage] = useState<SubPage | null>(initialSubPage);
 
   const openDescription = useCallback(() => setSubPage({ type: "description" }), []);
   const openCriterion   = useCallback((index: number) => setSubPage({ type: "criterion", index }), []);
@@ -19,5 +19,5 @@ export function useSubPage() {
   const openReview      = useCallback(() => setSubPage({ type: "review" }), []);
   const close           = useCallback(() => setSubPage(null), []);
 
-  return { subPage, openDescription, openCriterion, openMilestone, openChat, openSubmit, openReview, close };
+  return { subPage, setSubPage, openDescription, openCriterion, openMilestone, openChat, openSubmit, openReview, close };
 }

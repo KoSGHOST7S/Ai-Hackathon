@@ -1,0 +1,6 @@
+{$DOMAIN} {
+  encode gzip
+
+  # Keep long-lived SSE connections stable.
+  reverse_proxy api:3000
+}

@@ -1,12 +1,27 @@
 import { Router, Response } from "express";
+import multer from "multer";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { callAgentsService, streamFromAgentsService, parseFileViaAgents, streamChat, streamReview, type AgentsAnalyzeRequest, type FileContent, type ReviewRequest } from "../lib/agents";
 import { canvasFetch, getCanvasCredentials } from "../lib/canvas";
+import { fetchAssignmentLinkedFileContents } from "../lib/assignmentFiles";
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-async function fetchFileContents(
+// POST /assignments/parse-file — proxy multipart file to agents service for parsing
+router.post("/parse-file", requireAuth, upload.single("file"), async (req: AuthRequest, res: Response) => {
+  if (!req.file) {
+    res.status(400).json({ error: "No file uploaded" }); return;
+  }
+  const result = await parseFileViaAgents(req.file.buffer, req.file.originalname);
+  if (!result) {
+    res.status(422).json({ error: "Failed to parse file" }); return;
+  }
+  res.json(result);
+});
+
+async function fetchSubmissionFileContents(
   baseUrl: string, apiKey: string, courseId: string, assignmentId: string
 ): Promise<{ names: string[]; contents: FileContent[] }> {
   const names: string[] = [];
@@ -47,7 +62,8 @@ router.post("/analyze", requireAuth, async (req: AuthRequest, res: Response) => 
     const assignment = await canvasFetch(creds.baseUrl, creds.apiKey,
       `/courses/${courseId}/assignments/${assignmentId}`);
 
-    const description = (assignment.description ?? "")
+    const rawDescriptionHtml = assignment.description ?? "";
+    const description = rawDescriptionHtml
       .replace(/<[^>]+>/g, " ")
       .replace(/\s+/g, " ")
       .trim();
@@ -60,8 +76,10 @@ router.post("/analyze", requireAuth, async (req: AuthRequest, res: Response) => 
         .join("\n");
     }
 
-    const { names: attachment_names, contents: file_contents } =
-      await fetchFileContents(creds.baseUrl, creds.apiKey, courseId, assignmentId);
+    const submissionFiles = await fetchSubmissionFileContents(creds.baseUrl, creds.apiKey, courseId, assignmentId);
+    const linkedFiles = await fetchAssignmentLinkedFileContents(creds.baseUrl, creds.apiKey, rawDescriptionHtml);
+    const attachment_names = [...new Set([...submissionFiles.names, ...linkedFiles.names])];
+    const file_contents = [...submissionFiles.contents, ...linkedFiles.contents];
 
     const result = await callAgentsService({
       name: assignment.name,
@@ -103,7 +121,8 @@ router.post("/analyze/stream", requireAuth, async (req: AuthRequest, res: Respon
     const assignment = await canvasFetch(creds.baseUrl, creds.apiKey,
       `/courses/${courseId}/assignments/${assignmentId}`);
 
-    const description = (assignment.description ?? "")
+    const rawDescriptionHtml = assignment.description ?? "";
+    const description = rawDescriptionHtml
       .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
     let canvas_rubric_summary: string | null = null;
@@ -112,8 +131,10 @@ router.post("/analyze/stream", requireAuth, async (req: AuthRequest, res: Respon
         .map((c) => `- ${c.description ?? "criterion"} (${c.points ?? 0} pts)`).join("\n");
     }
 
-    const { names: attachment_names, contents: file_contents } =
-      await fetchFileContents(creds.baseUrl, creds.apiKey, courseId, assignmentId);
+    const submissionFiles = await fetchSubmissionFileContents(creds.baseUrl, creds.apiKey, courseId, assignmentId);
+    const linkedFiles = await fetchAssignmentLinkedFileContents(creds.baseUrl, creds.apiKey, rawDescriptionHtml);
+    const attachment_names = [...new Set([...submissionFiles.names, ...linkedFiles.names])];
+    const file_contents = [...submissionFiles.contents, ...linkedFiles.contents];
 
     const agentReq: AgentsAnalyzeRequest = {
       name: assignment.name,

@@ -1,5 +1,5 @@
 // apps/extension/src/App.tsx
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { BottomNav, type Tab } from "@/components/BottomNav";
 import { TodayView } from "@/components/views/TodayView";
 import { PlanView } from "@/components/views/PlanView";
@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useCanvasProfile } from "@/hooks/useCanvasProfile";
 import { useAssignments } from "@/hooks/useAssignments";
 import { apiFetch, fetchAnalysisResults } from "@/lib/api";
+import { loadUiSession, saveUiSession, type AssignmentDetailSession } from "@/lib/uiSession";
 import type { MeResponse } from "shared";
 import type { CanvasAssignment } from "@/types/analysis";
 
@@ -32,7 +33,13 @@ export default function App() {
   const { assignmentInfo } = useCanvasUrl();
   const [selectedAssignment, setSelectedAssignment] = useState<CanvasAssignment | null>(null);
   const [analyzedKeys, setAnalyzedKeys] = useState<Set<string>>(new Set());
+  const [detailByAssignment, setDetailByAssignment] = useState<Record<string, AssignmentDetailSession>>({});
+  const [sessionHydrated, setSessionHydrated] = useState(false);
+  const [restoreSelectedRef, setRestoreSelectedRef] = useState<{ courseId: string; assignmentId: string } | null>(null);
+  const restoredSelectionRef = useRef(false);
   const { assignments, loading: assignmentsLoading } = useAssignments(jwt);
+
+  const assignmentKey = useCallback((a: CanvasAssignment) => `${a.courseId ?? ""}-${a.id}`, []);
 
   const applyMe = useCallback((me: MeResponse) => {
     setMeData(me);
@@ -66,6 +73,39 @@ export default function App() {
   }, [assignmentInfo, assignments]);
 
   useEffect(() => {
+    loadUiSession()
+      .then((session) => {
+        setTab(session.tab);
+        setDetailByAssignment(session.detailByAssignment);
+        setRestoreSelectedRef(session.selectedAssignment);
+      })
+      .finally(() => setSessionHydrated(true));
+  }, []);
+
+  useEffect(() => {
+    if (!sessionHydrated || assignments.length === 0 || restoredSelectionRef.current) return;
+    restoredSelectionRef.current = true;
+    if (!restoreSelectedRef) return;
+    const restored = assignments.find((a) =>
+      String(a.id) === restoreSelectedRef.assignmentId &&
+      String(a.courseId ?? "") === restoreSelectedRef.courseId
+    );
+    if (restored) setSelectedAssignment(restored);
+  }, [assignments, restoreSelectedRef, sessionHydrated]);
+
+  useEffect(() => {
+    if (!sessionHydrated) return;
+    const payload = {
+      tab,
+      selectedAssignment: selectedAssignment
+        ? { courseId: String(selectedAssignment.courseId ?? ""), assignmentId: String(selectedAssignment.id) }
+        : null,
+      detailByAssignment,
+    };
+    void saveUiSession(payload);
+  }, [tab, selectedAssignment, detailByAssignment, sessionHydrated]);
+
+  useEffect(() => {
     if (!jwt) return;
     fetchAnalysisResults(jwt)
       .then((results) => {
@@ -78,7 +118,7 @@ export default function App() {
     setAnalyzedKeys((prev) => new Set([...prev, `${courseId}-${assignmentId}`]));
   };
 
-  if (isLoading || !meCheckDone) {
+  if (isLoading || !meCheckDone || !sessionHydrated) {
     return (
       <div className="w-[390px] h-[600px] bg-background flex items-center justify-center">
         <span className="text-muted-foreground text-sm">Loading…</span>
@@ -152,12 +192,18 @@ export default function App() {
       <main className="flex-1 min-h-0 p-4 overflow-hidden">
         {selectedAssignment ? (
           <AssignmentDetailView
+            key={`${selectedAssignment.courseId ?? ""}-${selectedAssignment.id}`}
             assignment={selectedAssignment}
             courseId={selectedAssignment.courseId ?? String(selectedAssignment.id)}
             assignmentId={String(selectedAssignment.id)}
             jwt={jwt!}
             onBack={() => setSelectedAssignment(null)}
             onAnalysisDone={handleAnalysisDone}
+            initialSession={detailByAssignment[assignmentKey(selectedAssignment)]}
+            onSessionChange={(session) => {
+              const key = assignmentKey(selectedAssignment);
+              setDetailByAssignment((prev) => ({ ...prev, [key]: session }));
+            }}
           />
         ) : (
           <>

@@ -151,6 +151,19 @@ export async function* streamReviewSubmission(
   }
 }
 
+export async function parseFile(jwt: string, file: File): Promise<{ name: string; text: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE_URL}/assignments/parse-file`, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${jwt}` },
+    body: form,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
+  return data as { name: string; text: string };
+}
+
 export async function getReviewResult(
   jwt: string, courseId: string, assignmentId: string
 ): Promise<ReviewResult | null> {

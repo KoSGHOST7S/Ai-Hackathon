@@ -1,0 +1,35 @@
+services:
+  api:
+    restart: unless-stopped
+    ports: !reset []
+    expose:
+      - "3000"
+
+  agents:
+    restart: unless-stopped
+    ports: !reset []
+    expose:
+      - "8000"
+
+  db:
+    restart: unless-stopped
+    ports: !reset []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      - DOMAIN=${DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

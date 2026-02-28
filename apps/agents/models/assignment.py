@@ -6,6 +6,16 @@ class FileContent(BaseModel):
     text: str
 
 
+class RequirementItem(BaseModel):
+    id: str
+    text: str
+    source: str = "assignment"
+
+
+class Requirements(BaseModel):
+    requirements: list[RequirementItem]
+
+
 class AnalyzeRequest(BaseModel):
     name: str
     description: str

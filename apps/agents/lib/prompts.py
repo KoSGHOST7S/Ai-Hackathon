@@ -18,9 +18,33 @@ break the work into 4-7 ordered, actionable milestones as valid JSON matching th
 {"milestones":[{"order":int,"title":str,"description":str,"estimatedHours":float,"deliverable":str}]}
 Rules:
 - Each milestone must correspond to one or more rubric criteria.
+- Every milestone description must include a coverage tag in this exact format: "Covers: R1, R3"
+- Across all milestones, every requirement ID provided in the REQUIREMENTS section must be covered at least once.
+- Milestones must be extremely specific and reference explicit assignment requirements, not generic advice.
 - estimatedHours should be realistic for a student.
 - deliverable is a concrete artifact (e.g. "working function", "test file", "written paragraph").
 - If a due date is provided, distribute milestones proportionally.
+Return ONLY the JSON object."""
+
+REQUIREMENT_EXTRACTOR_SYSTEM = """You are an academic requirements analyst.
+Extract explicit, testable assignment requirements as valid JSON with this exact schema:
+{"requirements":[{"id":str,"text":str,"source":str}]}
+Rules:
+- Extract ONLY explicit requirements stated in assignment context.
+- Use short IDs in order: R1, R2, R3...
+- Keep each requirement text specific and atomic (one obligation per item).
+- source must be one of: assignment, rubric, file.
+- Include all mandatory constraints, deliverables, formatting rules, and evaluation expectations.
+Return ONLY the JSON object."""
+
+MILESTONE_COVERAGE_VALIDATOR_SYSTEM = """You are a milestone plan quality validator.
+Given assignment context, requirement list, rubric, and draft milestones, return improved milestones as valid JSON:
+{"milestones":[{"order":int,"title":str,"description":str,"estimatedHours":float,"deliverable":str}]}
+Rules:
+- Ensure every requirement ID is covered in at least one milestone.
+- Keep milestones extremely specific and actionable.
+- Preserve realistic effort estimates.
+- Every milestone description MUST include a "Covers: ..." requirement-ID tag.
 Return ONLY the JSON object."""
 
 SCORER_SYSTEM = """You are an academic grading expert. Given a student submission, an assignment description, \

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
-import { ArrowLeft, Sparkles, CheckCircle2, Circle, ChevronRight, Loader2, MessageSquare, ClipboardCheck } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, Sparkles, CheckCircle2, Circle, ChevronRight, Loader2, MessageSquare, ClipboardCheck, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAnalysis } from "@/hooks/useAnalysis";
-import { useSubPage } from "@/hooks/useSubPage";
+import { useSubPage, type SubPage } from "@/hooks/useSubPage";
 import { DescriptionPage } from "./DescriptionPage";
 import { CriterionPage } from "./CriterionPage";
 import { MilestonePage } from "./MilestonePage";
@@ -13,8 +13,15 @@ import { SubmitPage } from "./SubmitPage";
 import { ReviewPage } from "./ReviewPage";
 import { useReview } from "@/hooks/useReview";
 import type { CanvasAssignment } from "@/types/analysis";
+import type { AssignmentDetailSession } from "@/lib/uiSession";
 
-const STEPS = ["Generating rubric…", "Validating rubric…", "Building milestones…"];
+const STEPS = [
+  "Extracting explicit requirements…",
+  "Generating rubric…",
+  "Validating rubric…",
+  "Building requirement-based milestones…",
+  "Validating milestone coverage…",
+];
 
 interface Props {
   assignment: CanvasAssignment;
@@ -23,13 +30,44 @@ interface Props {
   jwt: string;
   onBack: () => void;
   onAnalysisDone?: (courseId: string, assignmentId: string) => void;
+  initialSession?: AssignmentDetailSession;
+  onSessionChange?: (session: AssignmentDetailSession) => void;
 }
 
-export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, onBack, onAnalysisDone }: Props) {
+export function AssignmentDetailView({
+  assignment,
+  courseId,
+  assignmentId,
+  jwt,
+  onBack,
+  onAnalysisDone,
+  initialSession,
+  onSessionChange,
+}: Props) {
   const { result, status, error, step, analyze, loadExisting } = useAnalysis(jwt);
   const { result: reviewResult, status: reviewStatus, error: reviewError, step: reviewStep, submitForReview, loadExisting: loadExistingReview, reset: reviewReset } = useReview(jwt);
-  const { subPage, openDescription, openCriterion, openMilestone, openChat, openSubmit, openReview, close } = useSubPage();
-  const [checkedMilestones, setCheckedMilestones] = useState<Set<number>>(new Set());
+  const initialSubPage = initialSession?.subPage ?? null;
+  const { subPage, setSubPage, openDescription, openCriterion, openMilestone, openChat, openSubmit, openReview, close } = useSubPage(initialSubPage);
+  const [checkedMilestones, setCheckedMilestones] = useState<Set<number>>(
+    new Set(initialSession?.checkedMilestones ?? [])
+  );
+  const hydratedRef = useRef(false);
+  const selectedMilestoneIndex = subPage?.type === "milestone" ? subPage.index : -1;
+  const totalMilestones = result?.milestones.milestones.length ?? 0;
+
+  const completion = useMemo(() => ({
+    done: checkedMilestones.size,
+    total: totalMilestones,
+  }), [checkedMilestones.size, totalMilestones]);
+
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    if (initialSession?.subPage) setSubPage(initialSession.subPage);
+    if (initialSession?.checkedMilestones) {
+      setCheckedMilestones(new Set(initialSession.checkedMilestones));
+    }
+  }, [initialSession, setSubPage]);
 
   useEffect(() => {
     loadExisting(courseId, assignmentId);
@@ -56,6 +94,13 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
   const toggleMilestone = (i: number) =>
     setCheckedMilestones((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
 
+  useEffect(() => {
+    onSessionChange?.({
+      subPage: subPage as SubPage | null,
+      checkedMilestones: Array.from(checkedMilestones).sort((a, b) => a - b),
+    });
+  }, [subPage, checkedMilestones, onSessionChange]);
+
   // Sub-page routing
   if (subPage) {
     if (subPage.type === "description") {
@@ -72,6 +117,10 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
           milestone={m}
           isChecked={checkedMilestones.has(subPage.index)}
           onToggle={() => toggleMilestone(subPage.index)}
+          onPrev={subPage.index > 0 ? () => openMilestone(subPage.index - 1) : undefined}
+          onNext={subPage.index < result.milestones.milestones.length - 1 ? () => openMilestone(subPage.index + 1) : undefined}
+          hasPrev={subPage.index > 0}
+          hasNext={subPage.index < result.milestones.milestones.length - 1}
           onBack={close}
         />
       );
@@ -227,28 +276,47 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
 
             {/* Milestones section */}
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Milestones</p>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Milestones</p>
+                <span className="text-[10px] text-muted-foreground">
+                  {completion.done}/{completion.total || result.milestones.milestones.length} complete
+                </span>
+              </div>
               <div className="flex flex-col gap-1">
                 {result.milestones.milestones.map((m, i) => (
                   <Card key={i} className="shadow-none">
-                    <button
-                      className="w-full p-2.5 text-left flex items-center gap-2.5 hover:bg-muted/40 transition-colors"
-                      onClick={() => openMilestone(i)}
-                    >
-                      <div className="shrink-0">
+                    <div className="w-full p-2.5 text-left flex items-start gap-2.5 hover:bg-muted/40 transition-colors">
+                      <button
+                        className="shrink-0 mt-0.5"
+                        onClick={(e) => { e.stopPropagation(); toggleMilestone(i); }}
+                        aria-label={checkedMilestones.has(i) ? "Mark incomplete" : "Mark complete"}
+                      >
                         {checkedMilestones.has(i) ? (
                           <CheckCircle2 className="h-4 w-4 text-primary" />
                         ) : (
-                          <div className="h-4 w-4 rounded-full bg-muted border border-border flex items-center justify-center">
+                          <div className="h-4 w-4 rounded-sm bg-muted border border-border flex items-center justify-center">
                             <span className="text-[9px] font-bold text-muted-foreground leading-none">{m.order}</span>
                           </div>
                         )}
-                      </div>
-                      <p className={`flex-1 text-xs font-medium leading-snug min-w-0 ${checkedMilestones.has(i) ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                        {m.title}
-                      </p>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    </button>
+                      </button>
+
+                      <button className="flex-1 min-w-0 text-left" onClick={() => openMilestone(i)}>
+                        <p className={`text-xs font-medium leading-snug ${checkedMilestones.has(i) ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                          {m.title}
+                        </p>
+                        <div className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          <span>~{m.estimatedHours}h</span>
+                          {i === selectedMilestoneIndex && (
+                            <span className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-primary">Open</span>
+                          )}
+                        </div>
+                      </button>
+
+                      <button className="shrink-0" onClick={() => openMilestone(i)}>
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      </button>
+                    </div>
                   </Card>
                 ))}
               </div>

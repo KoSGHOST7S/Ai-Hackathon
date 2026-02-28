@@ -1,5 +1,8 @@
 FROM node:20-alpine
 
+# Ensure Prisma detects OpenSSL 3 on Alpine during `prisma generate`.
+RUN apk add --no-cache openssl
+
 # Install pnpm
 RUN corepack enable && corepack prepare pnpm@latest --activate
 

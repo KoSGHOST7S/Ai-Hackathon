@@ -10,7 +10,7 @@ def get_model(model_id: str | None = None) -> ModelInference:
     )
     client = APIClient(credentials=credentials)
     return ModelInference(
-        model_id=model_id or os.environ.get("GRANITE_MODEL", "ibm/granite-4-h-small"),
+        model_id=model_id or os.environ.get("GRANITE_MODEL", "gpt-oss-120b"),
         api_client=client,
         project_id=os.environ["WATSONX_PROJECT_ID"],
     )

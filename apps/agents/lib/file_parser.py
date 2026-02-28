@@ -22,8 +22,12 @@ def parse_docx(content: bytes) -> str:
 
 def parse_file(content: bytes, filename: str) -> str | None:
     lower = filename.lower()
-    if lower.endswith(".pdf"):
-        return parse_pdf(content)
-    elif lower.endswith(".docx"):
-        return parse_docx(content)
+    try:
+        if lower.endswith(".pdf"):
+            return parse_pdf(content)
+        elif lower.endswith(".docx"):
+            return parse_docx(content)
+    except Exception:
+        # Invalid or mislabeled file content; caller should treat as unsupported.
+        return None
     return None

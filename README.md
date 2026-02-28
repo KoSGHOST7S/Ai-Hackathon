@@ -45,7 +45,7 @@ cp .env.example .env
 | `WATSONX_API_KEY` | IBM watsonx.ai API key | Yes |
 | `WATSONX_PROJECT_ID` | watsonx.ai project ID | Yes |
 | `WATSONX_URL` | watsonx.ai endpoint | Yes (default: `https://us-south.ml.cloud.ibm.com/`) |
-| `GRANITE_MODEL` | Model ID for analysis | No (default: `ibm/granite-4-h-small`) |
+| `GRANITE_MODEL` | Model ID for analysis | No (default: `gpt-oss-120b`) |
 | `CANVAS_API_KEY` | Canvas LMS API key (for testing) | No |
 | `CANVAS_BASE_URL` | Canvas instance URL (for testing) | No |
 
@@ -128,6 +128,109 @@ docker compose exec api sh -c "cd apps/server && npx prisma migrate deploy"
 | `db` | localhost:5432 | PostgreSQL 17 |
 
 The extension still needs to be built locally (`cd apps/extension && pnpm build`) and loaded in Chrome.
+
+## Public HTTPS deployment (Docker + Caddy)
+
+Use this when hosting on a server so the extension can reach your API over HTTPS.
+
+### 1. Prepare server env
+
+```bash
+cp server.env.example .env
+```
+
+Edit `.env` and set:
+- `DOMAIN` to your public API hostname (example: `api.example.com`)
+- `JWT_SECRET` and `ENCRYPTION_SECRET`
+- `WATSONX_*` values
+
+### 2. Configure DNS and firewall
+
+- Point your domain (for example `api.example.com`) to the server IP
+- Open inbound TCP ports `80` and `443`
+
+### 3. Start the stack (with production override)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+```
+
+This keeps `db` and `agents` internal and exposes only Caddy (`80/443`) publicly.
+
+### 4. Run database migrations
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml exec api \
+  sh -c "cd apps/server && npx prisma migrate deploy"
+```
+
+### 5. Point extension at hosted API
+
+In `apps/extension/.env`:
+
+```bash
+VITE_API_URL=https://your-domain.example.com
+```
+
+Then rebuild and reload the extension:
+
+```bash
+cd apps/extension
+pnpm build
+```
+
+## Public HTTPS deployment (Docker + Cloudflare Tunnel)
+
+Use this if you prefer no inbound ports on your server.
+
+### 1. Create tunnel and route in Cloudflare
+
+In Cloudflare Zero Trust:
+- Create a new Tunnel (connector type: Docker)
+- Add a public hostname (example: `api.example.com`)
+- Set service URL to `http://api:3000`
+- Copy the generated tunnel token
+
+### 2. Prepare server env
+
+```bash
+cp server.tunnel.env.example .env
+```
+
+Edit `.env` and set:
+- `CLOUDFLARE_TUNNEL_TOKEN`
+- `JWT_SECRET` and `ENCRYPTION_SECRET`
+- `WATSONX_*` values
+
+### 3. Start stack with tunnel override
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d --build
+```
+
+This keeps `db`, `agents`, and `api` internal; `cloudflared` publishes your API through Cloudflare.
+
+### 4. Run database migrations
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.tunnel.yml exec api \
+  sh -c "cd apps/server && npx prisma migrate deploy"
+```
+
+### 5. Point extension at hosted API
+
+In `apps/extension/.env`:
+
+```bash
+VITE_API_URL=https://your-domain.example.com
+```
+
+Then rebuild and reload the extension:
+
+```bash
+cd apps/extension
+pnpm build
+```
 
 ## Services
 
@@ -216,7 +319,7 @@ npx prisma generate         # Regenerate client after schema changes
 | Extension | React 19, TypeScript, Vite, Tailwind CSS, Chrome MV3 |
 | API Server | Express, TypeScript, Prisma, PostgreSQL, JWT |
 | AI Agents | Python 3.13, FastAPI, IBM watsonx.ai SDK, Pydantic v2 |
-| AI Model | IBM Granite 4 (granite-4-h-small) |
+| AI Model | gpt-oss-120b (via watsonx endpoint) |
 | File Parsing | pymupdf (PDF), python-docx (DOCX) |
 | Package Management | pnpm (Node.js), uv (Python) |
 | Infrastructure | Docker Compose, PostgreSQL 17 |

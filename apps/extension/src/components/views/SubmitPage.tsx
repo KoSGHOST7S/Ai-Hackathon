@@ -3,6 +3,7 @@ import { Upload, FileText, Loader2, Send } from "lucide-react";
 import { SubPageHeader } from "./SubPageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { parseFile } from "@/lib/api";
 
 const REVIEW_STEPS = ["Scoring submission…", "Writing feedback…", "Validating review…"];
 
@@ -24,25 +25,24 @@ export function SubmitPage({ assignmentName, courseId, assignmentId, jwt, review
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileText, setFileText] = useState<string | null>(null);
   const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(file: File) {
     setParsing(true);
+    setParseError(null);
     setFileName(file.name);
     try {
       if (file.name.endsWith(".txt")) {
         setFileText(await file.text());
       } else {
-        const form = new FormData();
-        form.append("file", file);
-        const res = await fetch("http://localhost:8000/parse-file", { method: "POST", body: form });
-        if (!res.ok) throw new Error("Failed to parse file");
-        const data = await res.json();
+        const data = await parseFile(jwt, file);
         setFileText(data.text);
       }
-    } catch {
+    } catch (err) {
       setFileText(null);
       setFileName(null);
+      setParseError(err instanceof Error ? err.message : "Failed to parse file");
     } finally {
       setParsing(false);
     }
@@ -125,7 +125,7 @@ export function SubmitPage({ assignmentName, courseId, assignmentId, jwt, review
         </div>
 
         {mode === "file" && (
-          <div>
+          <div className="flex flex-col gap-2">
             <input
               ref={fileRef}
               type="file"
@@ -154,6 +154,9 @@ export function SubmitPage({ assignmentName, courseId, assignmentId, jwt, review
                 )}
               </div>
             </Card>
+            {parseError && (
+              <p className="text-xs text-destructive">{parseError}</p>
+            )}
           </div>
         )}
 
