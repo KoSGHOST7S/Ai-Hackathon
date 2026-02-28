@@ -54,7 +54,7 @@
     });
 
     btn.addEventListener('click', () => {
-      chrome.storage.local.set({ pendingAnalyze: { courseId, assignmentId } });
+      chrome.storage.local.set({ pendingAssignment: JSON.stringify({ courseId, assignmentId }) });
       chrome.runtime.sendMessage({ action: 'openPopup' });
     });
 
