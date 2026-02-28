@@ -4,6 +4,7 @@ import { BottomNav, type Tab } from "@/components/BottomNav";
 import { TodayView } from "@/components/views/TodayView";
 import { PlanView } from "@/components/views/PlanView";
 import { MeView } from "@/components/views/MeView";
+import { EditCanvasView } from "@/components/views/EditCanvasView";
 import { SetupView } from "@/components/views/SetupView";
 import { AssignmentDetailView } from "@/components/views/AssignmentDetailView";
 import { useCanvasUrl } from "@/hooks/useCanvasUrl";
@@ -25,6 +26,7 @@ type OnboardingStep = "account" | "canvas" | "done";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
+  const [canvasEdit, setCanvasEdit] = useState(false);
   const { jwt, user, isLoading, logout, signup, login } = useAuth();
   const { canvasName, canvasAvatarUrl, setProfile, clearProfile } = useCanvasProfile();
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("account");
@@ -168,12 +170,6 @@ export default function App() {
             <span className="text-base tracking-tight font-display">
               <span className="text-foreground font-bold">Assign</span><span className="text-primary font-bold">mint.ai</span>
             </span>
-            {!selectedAssignment && (
-              <>
-                <span className="mx-2 text-border select-none">·</span>
-                <span className="text-sm font-medium text-foreground">{VIEW_TITLE[tab]}</span>
-              </>
-            )}
           </div>
           <div className="h-7 w-7 rounded-full bg-primary/12 border border-primary/20 flex items-center justify-center overflow-hidden">
             {avatarUrl ? (
@@ -228,24 +224,42 @@ export default function App() {
               />
             )}
             {tab === "me" && (
-              <MeView
-                user={user}
-                meData={meData}
-                cachedAvatarUrl={avatarUrl}
-                assignmentCount={assignments.length}
-                analyzedCount={analyzedKeys.size}
-                courseCount={new Set(assignments.map((a) => a.courseId).filter(Boolean)).size}
-                onLogout={async () => {
-                  await clearProfile();
-                  logout();
-                }}
-              />
+              canvasEdit ? (
+                <EditCanvasView
+                  jwt={jwt!}
+                  currentBaseUrl={meData?.canvasBaseUrl ?? null}
+                  onBack={() => setCanvasEdit(false)}
+                  onSaved={async () => {
+                    setCanvasEdit(false);
+                    if (jwt) {
+                      try {
+                        const me = await apiFetch<MeResponse>("/auth/me", {}, jwt);
+                        applyMe(me);
+                      } catch { /* non-fatal */ }
+                    }
+                  }}
+                />
+              ) : (
+                <MeView
+                  user={user}
+                  meData={meData}
+                  cachedAvatarUrl={avatarUrl}
+                  assignmentCount={assignments.length}
+                  analyzedCount={analyzedKeys.size}
+                  courseCount={new Set(assignments.map((a) => a.courseId).filter(Boolean)).size}
+                  onLogout={async () => {
+                    await clearProfile();
+                    logout();
+                  }}
+                  onEditCanvas={() => setCanvasEdit(true)}
+                />
+              )
             )}
           </>
         )}
       </main>
 
-      <BottomNav active={tab} onChange={setTab} />
+      <BottomNav active={tab} onChange={(t) => { setCanvasEdit(false); setTab(t); }} />
     </div>
   );
 }
