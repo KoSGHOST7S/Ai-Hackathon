@@ -38,9 +38,22 @@ jobs:
       - name: Zip extension
         run: cd apps/extension/dist && zip -r ../assignmint-extension.zip .
 
+      # Keep the artifact for PR builds (no release on PRs)
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: assignmint-extension
           path: apps/extension/assignmint-extension.zip
           retention-days: 30
+
+      # Publish/update the "latest" release on every main branch push
+      - name: Release latest
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest
+          body: "Latest build from main. Install by downloading and loading unpacked in Chrome."
+          prerelease: false
+          make_latest: true
+          files: apps/extension/assignmint-extension.zip
