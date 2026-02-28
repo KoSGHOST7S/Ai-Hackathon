@@ -236,7 +236,7 @@ router.post("/:courseId/:assignmentId/chat", requireAuth, async (req: AuthReques
       .join("\n") ?? "";
 
     const milestoneList = (result.milestones as any).milestones
-      ?.map((m: any) => `**Step ${m.order}: ${m.title}** (~${m.estimatedHours}h)\nTasks: ${(m.tasks ?? []).join(", ")}\nDeliverable: ${m.deliverable}`)
+      ?.map((m: any) => `**Step ${m.order}: ${m.title}** (~${m.estimatedHours}h)\nTasks:\n${(m.tasks ?? []).map((t: string) => `- ${t}`).join("\n")}\nDeliverable: ${m.deliverable}`)
       .join("\n\n") ?? "";
 
     const system_context = [
