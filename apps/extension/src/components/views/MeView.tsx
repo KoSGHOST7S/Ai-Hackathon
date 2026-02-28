@@ -1,4 +1,4 @@
-import { GraduationCap, LogOut, BookOpen, Sparkles, Library } from "lucide-react";
+import { GraduationCap, LogOut, BookOpen, Sparkles, Library, Pencil } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -51,16 +51,15 @@ export function MeView({ user, meData, cachedAvatarUrl, assignmentCount, analyze
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {meData?.canvasBaseUrl && (
-              <div className="h-2 w-2 rounded-full bg-emerald-500" title="Connected" />
-            )}
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={onEditCanvas}
-              className="text-[10px] font-medium text-primary hover:underline"
+              className="gap-1.5 text-xs shrink-0"
             >
+              <Pencil className="h-3.5 w-3.5" />
               Edit
-            </button>
+            </Button>
           </div>
         </div>
       </Card>
