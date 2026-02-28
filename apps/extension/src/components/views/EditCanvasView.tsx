@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import { apiFetch } from "@/lib/api";
+import { SubPageHeader } from "./SubPageHeader";
 
 interface Props {
   jwt: string;
@@ -39,17 +39,7 @@ export function EditCanvasView({ jwt, currentBaseUrl, onBack, onSaved }: Props) 
 
   return (
     <div className="flex flex-col h-full">
-      {/* Sub-page header */}
-      <div className="flex items-center gap-2 mb-6">
-        <button
-          type="button"
-          onClick={onBack}
-          className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </button>
-        <span className="text-sm font-semibold text-foreground">Edit Canvas Connection</span>
-      </div>
+      <SubPageHeader title="Edit Canvas Connection" onBack={onBack} />
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -75,7 +65,7 @@ export function EditCanvasView({ jwt, currentBaseUrl, onBack, onSaved }: Props) 
           <input
             id="edit-canvas-key"
             type="password"
-            placeholder="Enter new token to replace existing"
+            placeholder="Enter your Canvas API token"
             value={canvasApiKey}
             onChange={(e) => { setCanvasApiKey(e.target.value); setError(""); }}
             className={inputClass}
