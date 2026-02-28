@@ -135,9 +135,7 @@
   .milestone-prose code {
     @apply font-mono text-[10px] bg-muted px-1 rounded;
   }
-}
 
-@layer components {
   /* Chat assistant markdown prose */
   .chat-prose {
     @apply text-xs leading-relaxed;
@@ -145,8 +143,11 @@
   .chat-prose h1,
   .chat-prose h2,
   .chat-prose h3 {
-    @apply font-semibold text-foreground mt-2 mb-1 first:mt-0 text-xs;
+    @apply font-semibold text-foreground mt-2 mb-1 first:mt-0;
   }
+  .chat-prose h1 { @apply text-xs; }
+  .chat-prose h2 { @apply text-xs; }
+  .chat-prose h3 { @apply text-[11px]; }
   .chat-prose p {
     @apply mb-1.5 last:mb-0;
   }
@@ -159,8 +160,14 @@
   .chat-prose strong {
     @apply font-semibold;
   }
+  .chat-prose em {
+    @apply italic;
+  }
   .chat-prose code {
     @apply font-mono text-[10px] bg-black/10 px-0.5 rounded;
+  }
+  .chat-prose pre code {
+    @apply bg-transparent px-0 rounded-none;
   }
   .chat-prose pre {
     @apply font-mono text-[10px] bg-black/10 rounded p-2 overflow-x-auto mb-1.5;
