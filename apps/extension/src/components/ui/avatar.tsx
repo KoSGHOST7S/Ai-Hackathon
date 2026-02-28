@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 
 interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
   initials: string;
+  src?: string | null;
   size?: "sm" | "md" | "lg";
 }
 
@@ -12,17 +13,30 @@ const sizeMap = {
   lg: "h-14 w-14 text-base",
 };
 
-function Avatar({ initials, size = "md", className, ...props }: AvatarProps) {
+function Avatar({ initials, src, size = "md", className, ...props }: AvatarProps) {
+  const [imgFailed, setImgFailed] = React.useState(false);
+  const showImage = src && !imgFailed;
+
   return (
     <div
       className={cn(
-        "rounded-full bg-gradient-to-br from-primary to-primary/60 text-primary-foreground font-semibold flex items-center justify-center shrink-0 select-none",
+        "rounded-full overflow-hidden shrink-0 select-none flex items-center justify-center",
+        !showImage && "bg-gradient-to-br from-primary to-primary/60 text-primary-foreground font-semibold",
         sizeMap[size],
         className,
       )}
       {...props}
     >
-      {initials}
+      {showImage ? (
+        <img
+          src={src}
+          alt={initials}
+          className="h-full w-full object-cover"
+          onError={() => setImgFailed(true)}
+        />
+      ) : (
+        initials
+      )}
     </div>
   );
 }

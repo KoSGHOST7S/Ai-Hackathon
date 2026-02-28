@@ -21,10 +21,10 @@ export function OnboardingWelcome({ isActive, onGetStarted, onSignIn }: Props) {
 
       {/* Brand name */}
       <h1
-        className="text-3xl font-bold tracking-tight text-foreground mb-2 animate-fade-in-up"
+        className="text-3xl tracking-tight mb-2 animate-fade-in-up font-display"
         style={{ animationPlayState: play, animationDelay: "80ms" }}
       >
-        assignmint
+        <span className="text-foreground font-bold">Assign</span><span className="text-primary font-bold">mint.ai</span>
       </h1>
 
       {/* Tagline */}

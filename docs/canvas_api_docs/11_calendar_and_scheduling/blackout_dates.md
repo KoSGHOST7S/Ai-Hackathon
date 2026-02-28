@@ -1,0 +1,123 @@
+# Blackout Dates
+
+> Canvas API — Calendar & Scheduling  
+> Source: https://canvas.instructure.com/doc/api/all_resources.html
+
+---
+
+## List blackout datesBlackoutDatesController#index
+
+
+### GET /api/v1/courses/:course_id/blackout_dates
+
+
+### GET /api/v1/accounts/:account_id/blackout_dates
+
+
+Returns the list of blackout dates for the current context.
+
+
+---
+
+## Get a single blackout dateBlackoutDatesController#show
+
+
+### GET /api/v1/courses/:course_id/blackout_dates/:id
+
+
+### GET /api/v1/accounts/:account_id/blackout_dates/:id
+
+
+Returns the blackout date with the given id.
+
+
+---
+
+## New Blackout DateBlackoutDatesController#new
+
+
+### GET /api/v1/courses/:course_id/blackout_dates/new
+
+
+### GET /api/v1/accounts/:account_id/blackout_dates/new
+
+
+Initialize an unsaved Blackout Date for the given context.
+
+
+---
+
+## Create Blackout DateBlackoutDatesController#create
+
+
+### POST /api/v1/courses/:course_id/blackout_dates
+
+
+### POST /api/v1/accounts/:account_id/blackout_dates
+
+
+Create a blackout date for the given context.
+
+
+#### Request Parameters:
+
+| Parameter |  | Type | Description |
+| --- | --- | --- | --- |
+| start_date |  | Date | The start date of the blackout date. |
+| end_date |  | Date | The end date of the blackout date. |
+| event_title |  | string | The title of the blackout date. |
+
+
+---
+
+## Update Blackout DateBlackoutDatesController#update
+
+
+### PUT /api/v1/courses/:course_id/blackout_dates/:id
+
+
+### PUT /api/v1/accounts/:account_id/blackout_dates/:id
+
+
+Update a blackout date for the given context.
+
+
+#### Request Parameters:
+
+| Parameter |  | Type | Description |
+| --- | --- | --- | --- |
+| start_date |  | Date | The start date of the blackout date. |
+| end_date |  | Date | The end date of the blackout date. |
+| event_title |  | string | The title of the blackout date. |
+
+
+---
+
+## Delete Blackout DateBlackoutDatesController#destroy
+
+
+### DELETE /api/v1/courses/:course_id/blackout_dates/:id
+
+
+### DELETE /api/v1/accounts/:account_id/blackout_dates/:id
+
+
+Delete a blackout date for the given context.
+
+
+---
+
+## Update a list of Blackout DatesBlackoutDatesController#bulk_update
+
+
+### PUT /api/v1/courses/:course_id/blackout_dates
+
+
+Create, update, and delete blackout dates to sync the db with the incoming data.
+
+
+#### Request Parameters:
+
+| Parameter |  | Type | Description |
+| --- | --- | --- | --- |
+| blackout_dates: |  | string | blackout_date, â¦ An object containing the array of BlackoutDates we want to exist after this operation. For array entries, if it has an id it will be updated, if not created, and if an existing BlackoutDate id is missing from the array, it will be deleted. |

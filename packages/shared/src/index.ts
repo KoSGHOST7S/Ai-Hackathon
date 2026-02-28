@@ -37,4 +37,6 @@ export interface MeResponse {
   email: string;
   hasCanvasConfig: boolean;
   canvasBaseUrl: string | null;
+  canvasName: string | null;
+  canvasAvatarUrl: string | null;
 }

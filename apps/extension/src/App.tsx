@@ -58,7 +58,19 @@ export default function App() {
         <SetupView
           jwt={jwt}
           onStep1Complete={() => setOnboardingStep("canvas")}
-          onComplete={() => setOnboardingStep("done")}
+          onComplete={async () => {
+            // Re-fetch /auth/me so canvasName/canvasAvatarUrl are populated
+            // before the dashboard renders (server already stored them by now)
+            if (jwt) {
+              try {
+                const me = await apiFetch<MeResponse>("/auth/me", {}, jwt);
+                setMeData(me);
+              } catch {
+                // non-fatal — dashboard still works without the profile
+              }
+            }
+            setOnboardingStep("done");
+          }}
           onSignup={signup}
           onLogin={login}
         />
@@ -66,19 +78,33 @@ export default function App() {
     );
   }
 
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??";
+  const displayName = meData?.canvasName ?? null;
+  const initials = displayName
+    ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+    : (user?.email?.slice(0, 2).toUpperCase() ?? "??");
 
   return (
     <div className="w-[390px] h-[600px] bg-background flex flex-col overflow-hidden">
       <header className="flex flex-col border-b border-border shrink-0 bg-card">
         <div className="flex items-center justify-between px-4 py-3">
           <div>
-            <span className="text-base font-bold text-primary tracking-tight">assignmint</span>
+            <span className="text-base tracking-tight font-display">
+              <span className="text-foreground font-bold">Assign</span><span className="text-primary font-bold">mint.ai</span>
+            </span>
             <span className="mx-2 text-border select-none">·</span>
             <span className="text-sm font-medium text-foreground">{VIEW_TITLE[tab]}</span>
           </div>
-          <div className="h-7 w-7 rounded-full bg-primary/12 border border-primary/20 flex items-center justify-center">
-            <span className="text-[10px] font-bold text-primary">{initials}</span>
+          <div className="h-7 w-7 rounded-full bg-primary/12 border border-primary/20 flex items-center justify-center overflow-hidden">
+            {meData?.canvasAvatarUrl ? (
+              <img
+                src={meData.canvasAvatarUrl}
+                alt={initials}
+                className="h-full w-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              <span className="text-[10px] font-bold text-primary">{initials}</span>
+            )}
           </div>
         </div>
 
@@ -94,7 +120,7 @@ export default function App() {
       </header>
 
       <main className="flex-1 min-h-0 p-4 overflow-hidden">
-        {tab === "today" && <TodayView />}
+        {tab === "today" && <TodayView displayName={displayName} />}
         {tab === "plan" && <PlanView />}
         {tab === "me" && <MeView user={user} meData={meData} onLogout={logout} />}
       </main>

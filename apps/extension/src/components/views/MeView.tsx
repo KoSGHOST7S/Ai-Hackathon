@@ -29,14 +29,22 @@ export function MeView({ user, meData, onLogout }: Props) {
   const toggle = (key: keyof typeof prefs) =>
     setPrefs((p) => ({ ...p, [key]: !p[key] }));
 
-  const initials = user?.email?.slice(0, 2).toUpperCase() ?? "??";
+  const displayName = meData?.canvasName ?? null;
+  const initials = displayName
+    ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
+    : (user?.email?.slice(0, 2).toUpperCase() ?? "??");
 
   return (
     <div className="flex flex-col gap-4 h-full">
       <div className="flex items-center gap-3.5">
-        <Avatar initials={initials} size="lg" />
+        <Avatar initials={initials} src={meData?.canvasAvatarUrl} size="lg" />
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-foreground text-sm">{user?.email ?? "—"}</p>
+          {displayName && (
+            <p className="font-semibold text-foreground text-sm leading-tight">{displayName}</p>
+          )}
+          <p className={displayName ? "text-xs text-muted-foreground truncate mt-0.5" : "font-semibold text-foreground text-sm"}>
+            {user?.email ?? "—"}
+          </p>
           {meData?.canvasBaseUrl && (
             <div className="flex items-center gap-1 mt-0.5">
               <GraduationCap className="h-3 w-3 text-muted-foreground shrink-0" />

@@ -36,6 +36,10 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      fontFamily: {
+        display: ['"DM Serif Display"', "Georgia", "serif"],
+        body: ['"DM Sans"', "system-ui", "sans-serif"],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",

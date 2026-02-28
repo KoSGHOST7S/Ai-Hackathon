@@ -66,6 +66,8 @@ router.get("/me", requireAuth, async (req: AuthRequest, res: Response) => {
       email: user.email,
       hasCanvasConfig: !!(user.canvasBaseUrl && user.canvasToken),
       canvasBaseUrl: user.canvasBaseUrl ?? null,
+      canvasName: user.canvasName ?? null,
+      canvasAvatarUrl: user.canvasAvatarUrl ?? null,
     });
   } catch (err) {
     console.error("me error:", err);
@@ -91,10 +93,30 @@ router.put("/canvas-config", requireAuth, async (req: AuthRequest, res: Response
       res.status(400).json({ error: "canvasBaseUrl must be a valid URL" });
       return;
     }
+
+    // Fetch Canvas user profile to capture name + avatar on behalf of the user
+    let canvasName: string | null = null;
+    let canvasAvatarUrl: string | null = null;
+    try {
+      const profileRes = await fetch(`${parsedOrigin}/api/v1/users/self/profile`, {
+        headers: { Authorization: `Bearer ${canvasApiKey}` },
+      });
+      if (profileRes.ok) {
+        const profile = await profileRes.json() as { name?: string; avatar_url?: string };
+        canvasName = profile.name ?? null;
+        canvasAvatarUrl = profile.avatar_url ?? null;
+        console.log(`[canvas-config] fetched profile for "${canvasName}"`);
+      } else {
+        console.warn(`[canvas-config] profile fetch failed: ${profileRes.status}`);
+      }
+    } catch (err) {
+      console.warn("[canvas-config] could not fetch Canvas profile:", err);
+    }
+
     const encryptedToken = encrypt(canvasApiKey);
     await prisma.user.update({
       where: { id: req.userId },
-      data: { canvasBaseUrl: parsedOrigin, canvasToken: encryptedToken },
+      data: { canvasBaseUrl: parsedOrigin, canvasToken: encryptedToken, canvasName, canvasAvatarUrl },
     });
     res.json({ ok: true });
   } catch (err) {

@@ -2,8 +2,12 @@ import { Clock, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { assignments, stats, user } from "@/data/mock";
+import { assignments, stats } from "@/data/mock";
 import type { Status } from "@/types";
+
+interface Props {
+  displayName?: string | null;
+}
 
 function greeting() {
   const h = new Date().getHours();
@@ -19,8 +23,8 @@ function statusVariant(status: Status) {
   return "muted" as const;
 }
 
-export function TodayView() {
-  const firstName = user.name.split(" ")[0];
+export function TodayView({ displayName }: Props) {
+  const firstName = displayName ? displayName.split(" ")[0] : null;
   const [focus, ...rest] = assignments;
   const more = rest.slice(0, 2);
 
@@ -29,7 +33,7 @@ export function TodayView() {
       {/* Greeting */}
       <div>
         <h2 className="text-[15px] font-semibold text-foreground tracking-tight">
-          {greeting()}, {firstName}
+          {greeting()}{firstName ? `, ${firstName}` : ""}
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
           {stats.dueToday} assignment{stats.dueToday !== 1 ? "s" : ""} due today
