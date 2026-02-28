@@ -42,3 +42,59 @@ export async function getAnalysisResult(
     return await apiFetch<AnalysisResult>(`/assignments/${courseId}/${assignmentId}/result`, {}, jwt);
   } catch { return null; }
 }
+
+export type StreamEvent =
+  | { type: "progress"; step: number; label: string }
+  | { type: "done";     result: AnalysisResult }
+  | { type: "error";    error: string };
+
+export async function* streamAnalysis(
+  jwt: string,
+  courseId: string,
+  assignmentId: string
+): AsyncGenerator<StreamEvent> {
+  const response = await fetch(`${BASE_URL}/assignments/analyze/stream`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${jwt}`,
+    },
+    body: JSON.stringify({ courseId, assignmentId }),
+  });
+
+  if (!response.ok || !response.body) {
+    yield { type: "error", error: `HTTP ${response.status}` };
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+
+    for (const raw of events) {
+      if (!raw.trim()) continue;
+      const lines = raw.split("\n");
+      const eventType = lines.find((l) => l.startsWith("event:"))?.slice(6).trim();
+      const dataStr   = lines.find((l) => l.startsWith("data:"))?.slice(5).trim();
+      if (!dataStr) continue;
+      try {
+        const data = JSON.parse(dataStr) as Record<string, unknown>;
+        if (eventType === "progress") {
+          yield { type: "progress", step: data.step as number, label: data.label as string };
+        } else if (eventType === "done") {
+          yield { type: "done", result: data as unknown as AnalysisResult };
+        } else if (eventType === "error") {
+          yield { type: "error", error: (data.error as string) ?? "Unknown error" };
+        }
+      } catch { /* malformed chunk — skip */ }
+    }
+  }
+}

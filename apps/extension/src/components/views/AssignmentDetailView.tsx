@@ -17,8 +17,7 @@ interface Props {
 }
 
 export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, onBack }: Props) {
-  const { result, status, error, analyze, loadExisting } = useAnalysis(jwt);
-  const [stepIdx, setStepIdx] = useState(0);
+  const { result, status, error, step, analyze, loadExisting } = useAnalysis(jwt);
   const [expandedCriteria, setExpandedCriteria] = useState<Set<number>>(new Set([0]));
   const [checkedMilestones, setCheckedMilestones] = useState<Set<number>>(new Set());
 
@@ -26,14 +25,6 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
     loadExisting(courseId, assignmentId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, assignmentId]);
-
-  useEffect(() => {
-    if (status !== "loading") { setStepIdx(0); return; }
-    const interval = setInterval(() => {
-      setStepIdx((i) => (i < STEPS.length - 1 ? i + 1 : i));
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [status]);
 
   const toggleCriterion = (i: number) =>
     setExpandedCriteria((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
@@ -82,17 +73,17 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
           <div className="flex flex-col items-center justify-center flex-1 gap-5 px-4">
             <Loader2 className="h-8 w-8 text-primary animate-spin" />
             <div className="w-full flex flex-col gap-2">
-              {STEPS.map((step, i) => (
-                <div key={step} className={`flex items-center gap-3 text-sm transition-opacity ${i <= stepIdx ? "opacity-100" : "opacity-30"}`}>
-                  {i < stepIdx ? (
+              {STEPS.map((label, i) => (
+                <div key={label} className={`flex items-center gap-3 text-sm transition-all duration-500 ${i <= step ? "opacity-100" : "opacity-30"}`}>
+                  {i < step ? (
                     <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                  ) : i === stepIdx ? (
+                  ) : i === step ? (
                     <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
                   ) : (
                     <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
                   )}
-                  <span className={i === stepIdx ? "text-foreground font-medium" : "text-muted-foreground"}>
-                    {step}
+                  <span className={i === step ? "text-foreground font-medium" : "text-muted-foreground"}>
+                    {label}
                   </span>
                 </div>
               ))}
