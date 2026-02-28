@@ -94,23 +94,29 @@ router.put("/canvas-config", requireAuth, async (req: AuthRequest, res: Response
       return;
     }
 
-    // Fetch Canvas user profile to capture name + avatar on behalf of the user
+    // Validate Canvas credentials by fetching user profile
     let canvasName: string | null = null;
     let canvasAvatarUrl: string | null = null;
     try {
       const profileRes = await fetch(`${parsedOrigin}/api/v1/users/self/profile`, {
         headers: { Authorization: `Bearer ${canvasApiKey}` },
       });
-      if (profileRes.ok) {
-        const profile = await profileRes.json() as { name?: string; avatar_url?: string };
-        canvasName = profile.name ?? null;
-        canvasAvatarUrl = profile.avatar_url ?? null;
-        console.log(`[canvas-config] fetched profile for "${canvasName}"`);
-      } else {
-        console.warn(`[canvas-config] profile fetch failed: ${profileRes.status}`);
+      if (!profileRes.ok) {
+        if (profileRes.status === 401 || profileRes.status === 403) {
+          res.status(400).json({ error: "Invalid Canvas API key — please check your token and try again" });
+          return;
+        }
+        res.status(400).json({ error: `Could not reach Canvas (HTTP ${profileRes.status}) — check your Canvas URL` });
+        return;
       }
+      const profile = await profileRes.json() as { name?: string; avatar_url?: string };
+      canvasName = profile.name ?? null;
+      canvasAvatarUrl = profile.avatar_url ?? null;
+      console.log(`[canvas-config] fetched profile for "${canvasName}"`);
     } catch (err) {
-      console.warn("[canvas-config] could not fetch Canvas profile:", err);
+      console.warn("[canvas-config] could not reach Canvas:", err);
+      res.status(400).json({ error: "Could not reach Canvas — check your Canvas URL and network" });
+      return;
     }
 
     const encryptedToken = encrypt(canvasApiKey);
