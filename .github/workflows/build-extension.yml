@@ -33,7 +33,7 @@ jobs:
       - name: Build
         run: pnpm --filter extension build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: https://api.assignmint.com
 
       - name: Package zip
         run: |
