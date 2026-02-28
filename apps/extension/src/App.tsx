@@ -39,6 +39,7 @@ export default function App() {
   const [sessionHydrated, setSessionHydrated] = useState(false);
   const [restoreSelectedRef, setRestoreSelectedRef] = useState<{ courseId: string; assignmentId: string } | null>(null);
   const restoredSelectionRef = useRef(false);
+  const [pendingAnalyzeKey, setPendingAnalyzeKey] = useState<string | null>(null);
   const { assignments, loading: assignmentsLoading, error: assignmentsError, refetch: refetchAssignments } = useAssignments(jwt);
 
   const assignmentKey = useCallback((a: CanvasAssignment) => `${a.courseId ?? ""}-${a.id}`, []);
@@ -82,6 +83,18 @@ export default function App() {
         setRestoreSelectedRef(session.selectedAssignment);
       })
       .finally(() => setSessionHydrated(true));
+  }, []);
+
+  // Check if popup was opened via the "Open in Assignmint" button on a Canvas page
+  useEffect(() => {
+    if (typeof chrome === "undefined" || !chrome.storage) return;
+    chrome.storage.local.get("pendingAnalyze", (data) => {
+      const pending = data.pendingAnalyze as { courseId: string; assignmentId: string } | undefined;
+      if (pending) {
+        setPendingAnalyzeKey(`${pending.courseId}-${pending.assignmentId}`);
+        chrome.storage.local.remove("pendingAnalyze");
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -201,6 +214,7 @@ export default function App() {
               const key = assignmentKey(selectedAssignment);
               setDetailByAssignment((prev) => ({ ...prev, [key]: session }));
             }}
+            autoAnalyze={pendingAnalyzeKey === assignmentKey(selectedAssignment)}
           />
         ) : (
           <>
@@ -237,6 +251,7 @@ export default function App() {
                         applyMe(me);
                       } catch { /* non-fatal */ }
                     }
+                    refetchAssignments();
                   }}
                 />
               ) : (
