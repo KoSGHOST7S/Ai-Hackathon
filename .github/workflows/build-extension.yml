@@ -33,11 +33,14 @@ jobs:
       - name: Build
         run: pnpm --filter extension build
         env:
-          VITE_API_URL: https://api.assignmint.com
+          VITE_API_URL: https://api.assignmint.ai
+
+      - name: Zip extension
+        run: cd apps/extension/dist && zip -r ../assignmint-extension.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: assignmint-extension
-          path: apps/extension/dist/
+          path: apps/extension/assignmint-extension.zip
           retention-days: 30
