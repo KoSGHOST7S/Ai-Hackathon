@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { AssignmentCard } from "@/components/AssignmentCard";
 import type { CanvasAssignment } from "@/types/analysis";
 
@@ -6,6 +6,8 @@ interface Props {
   displayName?: string | null;
   assignments: CanvasAssignment[];
   loading: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   analyzedKeys: Set<string>;
   onSelectAssignment: (a: CanvasAssignment) => void;
 }
@@ -24,7 +26,7 @@ function isToday(dueAt: string | null): boolean {
   return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
 }
 
-export function TodayView({ displayName, assignments, loading, analyzedKeys, onSelectAssignment }: Props) {
+export function TodayView({ displayName, assignments, loading, error, onRetry, analyzedKeys, onSelectAssignment }: Props) {
   const firstName = displayName ? displayName.split(" ")[0] : null;
   const dueToday = assignments.filter((a) => isToday(a.due_at)).length;
   const upcoming = [...assignments]
@@ -42,6 +44,17 @@ export function TodayView({ displayName, assignments, loading, analyzedKeys, onS
           {loading ? "Loading assignments…" : `${dueToday} assignment${dueToday !== 1 ? "s" : ""} due today`}
         </p>
       </div>
+
+      {error && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 flex items-start justify-between gap-2">
+          <p className="text-xs text-destructive leading-relaxed">{error}</p>
+          {onRetry && (
+            <button onClick={onRetry} className="shrink-0 text-destructive hover:text-destructive/80">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
 
       {!loading && assignments.length > 0 && (
         <div className="grid grid-cols-3 gap-2 shrink-0">
