@@ -11,7 +11,7 @@ import { useCanvasUrl } from "@/hooks/useCanvasUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanvasProfile } from "@/hooks/useCanvasProfile";
 import { useAssignments } from "@/hooks/useAssignments";
-import { apiFetch, fetchAnalysisResults } from "@/lib/api";
+import { apiFetch, API_RESPONSE_CACHE_TTL_MS, fetchAnalysisResults } from "@/lib/api";
 import { loadUiSession, saveUiSession, type AssignmentDetailSession } from "@/lib/uiSession";
 import { storageGet, storageRemove } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -63,7 +63,7 @@ export default function App() {
       return;
     }
     setMeCheckDone(false);
-    apiFetch<MeResponse>("/auth/me", {}, jwt)
+    apiFetch<MeResponse>("/auth/me", { cacheTtlMs: API_RESPONSE_CACHE_TTL_MS }, jwt)
       .then((me) => {
         applyMe(me);
         setOnboardingStep(me.hasCanvasConfig ? "done" : "canvas");
@@ -187,7 +187,11 @@ export default function App() {
           onComplete={async () => {
             if (jwt) {
               try {
-                const me = await apiFetch<MeResponse>("/auth/me", {}, jwt);
+                const me = await apiFetch<MeResponse>(
+                  "/auth/me",
+                  { cacheTtlMs: API_RESPONSE_CACHE_TTL_MS },
+                  jwt
+                );
                 applyMe(me);
               } catch {
                 // non-fatal — dashboard still works without the profile
@@ -302,7 +306,11 @@ export default function App() {
                 setCanvasEdit(false);
                 if (jwt) {
                   try {
-                    const me = await apiFetch<MeResponse>("/auth/me", {}, jwt);
+                    const me = await apiFetch<MeResponse>(
+                      "/auth/me",
+                      { cacheTtlMs: API_RESPONSE_CACHE_TTL_MS },
+                      jwt
+                    );
                     applyMe(me);
                   } catch { /* non-fatal */ }
                 }

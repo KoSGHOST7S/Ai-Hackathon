@@ -11,7 +11,7 @@ export function useAssignments(jwt: string | null) {
   useEffect(() => {
     if (!jwt) return;
     setLoading(true);
-    fetchAllAssignments(jwt)
+    fetchAllAssignments(jwt, trigger > 0)
       .then(setAssignments)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load assignments"))
       .finally(() => setLoading(false));

@@ -29,3 +29,12 @@ export function storageRemove(key: string): Promise<void> {
   localStorage.removeItem(key);
   return Promise.resolve();
 }
+
+export function storageListKeys(): Promise<string[]> {
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(null, (items) => resolve(Object.keys(items)));
+    });
+  }
+  return Promise.resolve(Object.keys(localStorage));
+}

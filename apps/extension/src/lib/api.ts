@@ -1,29 +1,111 @@
 import type { CanvasAssignment, AnalysisResult, ReviewResult } from "@/types/analysis";
+import { storageGet, storageListKeys, storageRemove, storageSet } from "@/lib/storage";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
+const API_CACHE_PREFIX = "assignmint_api_cache:v1:";
+export const API_RESPONSE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type ApiFetchOptions = RequestInit & {
+  cacheTtlMs?: number;
+  bypassCache?: boolean;
+};
+
+type CachedApiResponse = {
+  expiresAt: number;
+  data: unknown;
+};
+
+function getUserCacheScope(jwt: string): string {
+  try {
+    const payload = JSON.parse(atob(jwt.split(".")[1] ?? "")) as {
+      userId?: string;
+      sub?: string;
+      email?: string;
+    };
+    return payload.userId ?? payload.sub ?? payload.email ?? jwt.slice(0, 16);
+  } catch {
+    return jwt.slice(0, 16);
+  }
+}
+
+function getApiCacheKey(jwt: string, path: string): string {
+  return `${API_CACHE_PREFIX}${getUserCacheScope(jwt)}:${path}`;
+}
+
+async function readCachedResponse<T>(key: string): Promise<T | null> {
+  const raw = await storageGet(key);
+  if (!raw) return null;
+  try {
+    const cached = JSON.parse(raw) as CachedApiResponse;
+    if (Date.now() >= cached.expiresAt) {
+      await storageRemove(key);
+      return null;
+    }
+    return cached.data as T;
+  } catch {
+    await storageRemove(key);
+    return null;
+  }
+}
+
+async function writeCachedResponse<T>(key: string, data: T, ttlMs: number): Promise<void> {
+  const payload: CachedApiResponse = { expiresAt: Date.now() + ttlMs, data };
+  await storageSet(key, JSON.stringify(payload));
+}
+
+export async function clearApiResponseCache(jwt?: string): Promise<void> {
+  const prefix = jwt ? `${API_CACHE_PREFIX}${getUserCacheScope(jwt)}:` : API_CACHE_PREFIX;
+  const keys = await storageListKeys();
+  const removals = keys
+    .filter((key) => key.startsWith(prefix))
+    .map((key) => storageRemove(key));
+  await Promise.all(removals);
+}
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {},
+  options: ApiFetchOptions = {},
   jwt?: string
 ): Promise<T> {
+  const { cacheTtlMs, bypassCache, ...requestOptions } = options;
+  const method = (requestOptions.method ?? "GET").toUpperCase();
+  const canReadOrWriteCache = method === "GET" && !!jwt && (cacheTtlMs ?? 0) > 0;
+  const cacheKey = canReadOrWriteCache && jwt ? getApiCacheKey(jwt, path) : null;
+
+  if (cacheKey && !bypassCache) {
+    const cached = await readCachedResponse<T>(cacheKey);
+    if (cached !== null) return cached;
+  }
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
+    ...(requestOptions.headers as Record<string, string>),
   };
   if (jwt) {
     headers["Authorization"] = `Bearer ${jwt}`;
   }
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const res = await fetch(`${BASE_URL}${path}`, { ...requestOptions, headers });
   const data = await res.json();
   if (!res.ok) {
     throw new Error((data as { error?: string }).error ?? `HTTP ${res.status}`);
   }
+
+  if (cacheKey && cacheTtlMs) {
+    await writeCachedResponse(cacheKey, data as T, cacheTtlMs);
+  }
+  if (method !== "GET" && jwt) {
+    await clearApiResponseCache(jwt);
+  }
+
   return data as T;
 }
 
-export async function fetchAllAssignments(jwt: string): Promise<CanvasAssignment[]> {
-  return apiFetch<CanvasAssignment[]>("/canvas/assignments", {}, jwt);
+export async function fetchAllAssignments(jwt: string, bypassCache = false): Promise<CanvasAssignment[]> {
+  return apiFetch<CanvasAssignment[]>(
+    "/canvas/assignments",
+    { cacheTtlMs: API_RESPONSE_CACHE_TTL_MS, bypassCache },
+    jwt
+  );
 }
 
 export async function analyzeAssignment(

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, clearApiResponseCache } from "@/lib/api";
 import { storageGet, storageSet, storageRemove } from "@/lib/storage";
 import type { AuthResponse, LoginRequest, SignupRequest } from "shared";
 
@@ -54,6 +54,7 @@ export function useAuth() {
 
   const logout = useCallback(async () => {
     await storageRemove(STORAGE_KEY);
+    await clearApiResponseCache();
     setState({ jwt: null, user: null, isLoading: false });
   }, []);
 
