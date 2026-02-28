@@ -59,3 +59,49 @@ export async function callAgentsService(req: AgentsAnalyzeRequest): Promise<Agen
   }
   return res.json();
 }
+
+export type SseProgressEvent = { type: "progress"; step: number; label: string };
+export type SseDoneEvent     = { type: "done"; result: AgentsAnalyzeResponse };
+export type SseErrorEvent    = { type: "error"; error: string };
+export type SseEvent = SseProgressEvent | SseDoneEvent | SseErrorEvent;
+
+/** Streams parsed SSE events from the agents /analyze/stream endpoint. */
+export async function* streamFromAgentsService(
+  req: AgentsAnalyzeRequest
+): AsyncGenerator<SseEvent> {
+  const res = await fetch(`${AGENTS_URL}/analyze/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok || !res.body) {
+    yield { type: "error", error: `Agents service error ${res.status}` };
+    return;
+  }
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for await (const chunk of res.body) {
+    buffer += decoder.decode(chunk as Uint8Array, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+
+    for (const raw of events) {
+      if (!raw.trim()) continue;
+      const lines = raw.split("\n");
+      const eventType = lines.find((l) => l.startsWith("event:"))?.slice(6).trim();
+      const dataStr   = lines.find((l) => l.startsWith("data:"))?.slice(5).trim();
+      if (!dataStr) continue;
+      try {
+        const data = JSON.parse(dataStr) as Record<string, unknown>;
+        if (eventType === "progress") {
+          yield { type: "progress", step: data.step as number, label: data.label as string };
+        } else if (eventType === "done") {
+          yield { type: "done", result: data as unknown as AgentsAnalyzeResponse };
+        } else if (eventType === "error") {
+          yield { type: "error", error: (data.error as string) ?? "Unknown error" };
+        }
+      } catch { /* malformed event — skip */ }
+    }
+  }
+}

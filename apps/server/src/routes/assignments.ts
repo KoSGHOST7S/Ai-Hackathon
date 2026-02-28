@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
-import { callAgentsService } from "../lib/agents";
+import { callAgentsService, streamFromAgentsService, type AgentsAnalyzeRequest } from "../lib/agents";
 import { canvasFetch, getCanvasCredentials } from "../lib/canvas";
 
 const router = Router();
@@ -70,6 +70,92 @@ router.post("/analyze", requireAuth, async (req: AuthRequest, res: Response) => 
   } catch (err) {
     console.error("analyze error:", err);
     res.status(502).json({ error: err instanceof Error ? err.message : "Analysis failed" });
+  }
+});
+
+// POST /assignments/analyze/stream — SSE streaming version
+router.post("/analyze/stream", requireAuth, async (req: AuthRequest, res: Response) => {
+  const { courseId, assignmentId } = req.body as { courseId: string; assignmentId: string };
+  if (!courseId || !assignmentId) {
+    res.status(400).json({ error: "courseId and assignmentId required" }); return;
+  }
+
+  try {
+    const creds = await getCanvasCredentials(req.userId!);
+    if (!creds) { res.status(400).json({ error: "Canvas not configured" }); return; }
+
+    const assignment = await canvasFetch(creds.baseUrl, creds.apiKey,
+      `/courses/${courseId}/assignments/${assignmentId}`);
+
+    const description = (assignment.description ?? "")
+      .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+    let canvas_rubric_summary: string | null = null;
+    if (Array.isArray(assignment.rubric) && assignment.rubric.length > 0) {
+      canvas_rubric_summary = (assignment.rubric as Array<{ description?: string; points?: number }>)
+        .map((c) => `- ${c.description ?? "criterion"} (${c.points ?? 0} pts)`).join("\n");
+    }
+
+    let attachment_names: string[] = [];
+    try {
+      const submission = await canvasFetch(creds.baseUrl, creds.apiKey,
+        `/courses/${courseId}/assignments/${assignmentId}/submissions/self`);
+      if (Array.isArray(submission?.attachments)) {
+        attachment_names = (submission.attachments as Array<{ display_name?: string }>)
+          .map((f) => f.display_name ?? "").filter(Boolean);
+      }
+    } catch { /* non-fatal */ }
+
+    const agentReq: AgentsAnalyzeRequest = {
+      name: assignment.name,
+      description,
+      points_possible: assignment.points_possible ?? 100,
+      submission_types: assignment.submission_types ?? [],
+      due_at: assignment.due_at ?? null,
+      grading_type: assignment.grading_type ?? "points",
+      allowed_attempts: assignment.allowed_attempts ?? null,
+      attachment_names,
+      canvas_rubric_summary,
+    };
+
+    // SSE headers — must be sent before any body write
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    for await (const event of streamFromAgentsService(agentReq)) {
+      if (event.type === "progress") {
+        res.write(`event: progress\ndata: ${JSON.stringify({ step: event.step, label: event.label })}\n\n`);
+      } else if (event.type === "done") {
+        try {
+          await prisma.analysisResult.upsert({
+            where:  { userId_courseId_assignmentId: { userId: req.userId!, courseId, assignmentId } },
+            update: { rubric: event.result.rubric as object, milestones: event.result.milestones as object },
+            create: { userId: req.userId!, courseId, assignmentId, rubric: event.result.rubric as object, milestones: event.result.milestones as object },
+          });
+        } catch (dbErr) {
+          console.error("DB upsert failed during stream:", dbErr);
+        }
+        res.write(`event: done\ndata: ${JSON.stringify(event.result)}\n\n`);
+        res.end();
+        return;
+      } else if (event.type === "error") {
+        res.write(`event: error\ndata: ${JSON.stringify({ error: event.error })}\n\n`);
+        res.end();
+        return;
+      }
+    }
+    res.end();
+  } catch (err) {
+    console.error("analyze/stream error:", err);
+    if (!res.headersSent) {
+      res.status(502).json({ error: err instanceof Error ? err.message : "Stream failed" });
+    } else {
+      res.write(`event: error\ndata: ${JSON.stringify({ error: "Internal server error" })}\n\n`);
+      res.end();
+    }
   }
 });
 
