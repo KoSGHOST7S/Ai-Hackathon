@@ -1,7 +1,7 @@
-import json
 from ibm_watsonx_ai.foundation_models import ModelInference
 from models.review import ReviewRequest
 from lib.prompts import SCORER_SYSTEM
+from lib.json_repair import parse_llm_json
 
 
 async def score_submission(request: ReviewRequest, model: ModelInference) -> dict:
@@ -20,10 +20,5 @@ async def score_submission(request: ReviewRequest, model: ModelInference) -> dic
         {"role": "system", "content": SCORER_SYSTEM},
         {"role": "user", "content": user_msg},
     ])
-    raw = resp["choices"][0]["message"]["content"].strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip()
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-    return json.loads(raw)
+    raw = resp["choices"][0]["message"]["content"]
+    return parse_llm_json(raw, model)

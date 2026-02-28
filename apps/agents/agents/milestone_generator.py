@@ -16,10 +16,6 @@ async def generate_milestones(
         {"role": "system", "content": MILESTONE_SYSTEM},
         {"role": "user",   "content": user_msg},
     ])
-    raw = resp["choices"][0]["message"]["content"].strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip()
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-    return Milestones.model_validate(json.loads(raw))
+    raw = resp["choices"][0]["message"]["content"]
+    from lib.json_repair import parse_llm_json
+    return Milestones.model_validate(parse_llm_json(raw, model))

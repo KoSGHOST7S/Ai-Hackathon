@@ -16,13 +16,9 @@ async def validate_rubric(
         {"role": "system", "content": VALIDATOR_SYSTEM},
         {"role": "user",   "content": user_msg},
     ])
-    raw = resp["choices"][0]["message"]["content"].strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip()
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
+    raw = resp["choices"][0]["message"]["content"]
+    from lib.json_repair import parse_llm_json
     try:
-        return Rubric.model_validate(json.loads(raw))
+        return Rubric.model_validate(parse_llm_json(raw, model))
     except Exception:
-        return rubric  # graceful fallback: return original if validation fails
+        return rubric

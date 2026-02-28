@@ -2,6 +2,7 @@ import json
 from ibm_watsonx_ai.foundation_models import ModelInference
 from models.review import ReviewRequest
 from lib.prompts import FEEDBACK_SYSTEM
+from lib.json_repair import parse_llm_json
 
 
 async def write_feedback(request: ReviewRequest, scores: dict, model: ModelInference) -> dict:
@@ -19,10 +20,5 @@ async def write_feedback(request: ReviewRequest, scores: dict, model: ModelInfer
         {"role": "system", "content": FEEDBACK_SYSTEM},
         {"role": "user", "content": user_msg},
     ])
-    raw = resp["choices"][0]["message"]["content"].strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip()
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
-    return json.loads(raw)
+    raw = resp["choices"][0]["message"]["content"]
+    return parse_llm_json(raw, model)

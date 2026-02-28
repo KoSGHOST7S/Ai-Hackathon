@@ -2,6 +2,7 @@ import json
 from ibm_watsonx_ai.foundation_models import ModelInference
 from models.review import ReviewResponse
 from lib.prompts import REVIEW_VALIDATOR_SYSTEM
+from lib.json_repair import parse_llm_json
 
 
 async def validate_review(combined: dict, model: ModelInference) -> ReviewResponse:
@@ -10,13 +11,9 @@ async def validate_review(combined: dict, model: ModelInference) -> ReviewRespon
         {"role": "system", "content": REVIEW_VALIDATOR_SYSTEM},
         {"role": "user", "content": user_msg},
     ])
-    raw = resp["choices"][0]["message"]["content"].strip()
-    if raw.startswith("```"):
-        raw = raw.split("```")[1].lstrip()
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
+    raw = resp["choices"][0]["message"]["content"]
     try:
-        return ReviewResponse.model_validate(json.loads(raw))
+        parsed = parse_llm_json(raw, model)
+        return ReviewResponse.model_validate(parsed)
     except Exception:
         return ReviewResponse.model_validate(combined)
