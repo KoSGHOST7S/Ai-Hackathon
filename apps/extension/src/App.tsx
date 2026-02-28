@@ -37,7 +37,7 @@ export default function App() {
   const [sessionHydrated, setSessionHydrated] = useState(false);
   const [restoreSelectedRef, setRestoreSelectedRef] = useState<{ courseId: string; assignmentId: string } | null>(null);
   const restoredSelectionRef = useRef(false);
-  const { assignments, loading: assignmentsLoading } = useAssignments(jwt);
+  const { assignments, loading: assignmentsLoading, refetch: refetchAssignments } = useAssignments(jwt);
 
   const assignmentKey = useCallback((a: CanvasAssignment) => `${a.courseId ?? ""}-${a.id}`, []);
 
@@ -144,6 +144,7 @@ export default function App() {
               }
             }
             setOnboardingStep("done");
+            refetchAssignments();
           }}
           onSignup={signup}
           onLogin={login}
