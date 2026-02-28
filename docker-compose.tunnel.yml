@@ -20,6 +20,8 @@ services:
     restart: unless-stopped
     depends_on:
       - api
+    env_file:
+      - .env
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
