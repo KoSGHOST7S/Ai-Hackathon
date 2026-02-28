@@ -174,6 +174,7 @@ export default function App() {
               <PlanView
                 assignments={assignments}
                 loading={assignmentsLoading}
+                analyzedKeys={analyzedKeys}
                 onSelectAssignment={setSelectedAssignment}
               />
             )}
@@ -182,6 +183,9 @@ export default function App() {
                 user={user}
                 meData={meData}
                 cachedAvatarUrl={avatarUrl}
+                assignmentCount={assignments.length}
+                analyzedCount={analyzedKeys.size}
+                courseCount={new Set(assignments.map((a) => a.courseId).filter(Boolean)).size}
                 onLogout={async () => {
                   await clearProfile();
                   logout();
