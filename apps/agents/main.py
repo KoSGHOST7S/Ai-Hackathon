@@ -12,7 +12,9 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)),
 from lib.file_parser import parse_file
 from models.assignment import AnalyzeRequest, AnalyzeResponse
 from models.chat import ChatRequest
+from models.review import ReviewRequest, ReviewResponse
 from workflow.pipeline import run_pipeline, stream_pipeline
+from workflow.review_pipeline import run_review, stream_review
 
 
 @asynccontextmanager
@@ -56,6 +58,27 @@ async def analyze_stream(req: AnalyzeRequest) -> StreamingResponse:
             logging.exception("Stream pipeline failed")
             yield f'event: error\ndata: {json.dumps({"error": str(exc)})}\n\n'
 
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.post("/review", response_model=ReviewResponse)
+async def review(req: ReviewRequest) -> ReviewResponse:
+    try:
+        return await run_review(req)
+    except Exception as exc:
+        logging.exception("Review pipeline failed")
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+@app.post("/review/stream")
+async def review_stream(req: ReviewRequest) -> StreamingResponse:
+    async def event_generator():
+        try:
+            async for chunk in stream_review(req):
+                yield chunk
+        except Exception as exc:
+            logging.exception("Stream review failed")
+            yield f'event: error\ndata: {json.dumps({"error": str(exc)})}\n\n'
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
