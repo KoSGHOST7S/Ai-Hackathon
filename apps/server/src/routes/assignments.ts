@@ -237,9 +237,9 @@ router.post("/:courseId/:assignmentId/chat", requireAuth, async (req: AuthReques
       .join("\n\n") ?? "";
 
     const system_context = [
-      "You are an expert academic coach. Answer questions about this assignment to help the student get the best grade possible.",
-      "Always respond in markdown — use **bold** for key points, bullet lists for steps, and ## headers for multi-part answers.",
-      "Be direct and actionable: tell the student exactly what to do to earn points. Reference specific rubric criteria and point values.",
+      "You are an expert academic coach. Answer only what the student explicitly asks — do not volunteer extra information or pad your response.",
+      "Be succinct. Use plain prose for simple answers. Only use bullet lists or headers when the question genuinely requires multiple distinct points.",
+      "When referencing the rubric or milestones, cite the specific criterion or step — don't repeat the full rubric unprompted.",
       "",
       "## Rubric (grading breakdown)",
       pointsBreakdown,
