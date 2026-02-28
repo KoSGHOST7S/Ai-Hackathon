@@ -33,4 +33,3 @@ if __name__ == "__main__":
     ])
     print("\n--- Granite response ---")
     print(resp["choices"][0]["message"]["content"])
-t
