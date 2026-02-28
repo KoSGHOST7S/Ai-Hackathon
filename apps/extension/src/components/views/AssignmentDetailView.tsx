@@ -114,6 +114,7 @@ export function AssignmentDetailView({
       const m = result.milestones.milestones[subPage.index];
       if (m) return (
         <MilestonePage
+          key={subPage.index}
           milestone={m}
           isChecked={checkedMilestones.has(subPage.index)}
           onToggle={() => toggleMilestone(subPage.index)}
