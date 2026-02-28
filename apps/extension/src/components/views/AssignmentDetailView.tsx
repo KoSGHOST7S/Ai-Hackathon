@@ -32,6 +32,7 @@ interface Props {
   onAnalysisDone?: (courseId: string, assignmentId: string) => void;
   initialSession?: AssignmentDetailSession;
   onSessionChange?: (session: AssignmentDetailSession) => void;
+  autoAnalyze?: boolean;
 }
 
 export function AssignmentDetailView({
@@ -43,8 +44,9 @@ export function AssignmentDetailView({
   onAnalysisDone,
   initialSession,
   onSessionChange,
+  autoAnalyze,
 }: Props) {
-  const { result, status, error, step, analyze, loadExisting } = useAnalysis(jwt);
+  const { result, status, error, step, loadChecked, analyze, loadExisting } = useAnalysis(jwt);
   const { result: reviewResult, status: reviewStatus, error: reviewError, step: reviewStep, submitForReview, loadExisting: loadExistingReview, reset: reviewReset } = useReview(jwt);
   const initialSubPage = initialSession?.subPage ?? null;
   const { subPage, setSubPage, openDescription, openCriterion, openMilestone, openChat, openSubmit, openReview, close } = useSubPage(initialSubPage);
@@ -73,6 +75,13 @@ export function AssignmentDetailView({
     loadExisting(courseId, assignmentId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, assignmentId]);
+
+  useEffect(() => {
+    if (autoAnalyze && loadChecked && status === "idle") {
+      analyze(courseId, assignmentId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAnalyze, loadChecked, status]);
 
   useEffect(() => {
     if (status === "done" && result) {

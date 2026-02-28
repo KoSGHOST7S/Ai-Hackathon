@@ -9,11 +9,13 @@ export function useAnalysis(jwt: string | null) {
   const [status, setStatus] = useState<AnalysisStatus>("idle");
   const [error, setError]   = useState<string | null>(null);
   const [step, setStep]     = useState(0);
+  const [loadChecked, setLoadChecked] = useState(false);
 
   async function loadExisting(courseId: string, assignmentId: string) {
     if (!jwt) return;
     const existing = await getAnalysisResult(jwt, courseId, assignmentId);
     if (existing) { setResult(existing); setStatus("done"); }
+    setLoadChecked(true);
   }
 
   async function analyze(courseId: string, assignmentId: string) {
@@ -39,7 +41,7 @@ export function useAnalysis(jwt: string | null) {
     }
   }
 
-  function reset() { setResult(null); setStatus("idle"); setError(null); setStep(0); }
+  function reset() { setResult(null); setStatus("idle"); setError(null); setStep(0); setLoadChecked(false); }
 
-  return { result, status, error, step, analyze, loadExisting, reset };
+  return { result, status, error, step, loadChecked, analyze, loadExisting, reset };
 }
