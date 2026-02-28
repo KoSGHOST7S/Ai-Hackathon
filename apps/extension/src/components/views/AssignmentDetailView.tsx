@@ -227,9 +227,7 @@ export function AssignmentDetailView({
 
         {/* Loading state */}
         {status === "loading" && (
-          <div className="flex flex-col items-center justify-center flex-1 gap-5 px-2">
-            <Loader2 className="h-8 w-8 text-primary animate-spin" />
-            <div className="w-full flex flex-col gap-2">
+          <div className="flex flex-col justify-center flex-1 gap-2 px-2">
               {STEPS.map((label, i) => (
                 <div key={label} className={`flex items-center gap-3 text-sm transition-all duration-500 ${i <= step ? "opacity-100" : "opacity-30"}`}>
                   {i < step ? (
@@ -244,7 +242,6 @@ export function AssignmentDetailView({
                   </span>
                 </div>
               ))}
-            </div>
           </div>
         )}
 

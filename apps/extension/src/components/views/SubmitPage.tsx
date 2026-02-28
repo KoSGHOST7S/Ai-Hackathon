@@ -62,8 +62,7 @@ export function SubmitPage({ assignmentName, courseId, assignmentId, jwt, review
     return (
       <div className="flex flex-col h-full overflow-hidden">
         <SubPageHeader title="Reviewing…" onBack={onBack} />
-        <div className="flex-1 flex flex-col items-center justify-center gap-5 px-4">
-          <Loader2 className="h-8 w-8 text-primary animate-spin" />
+        <div className="flex-1 flex flex-col justify-center gap-2 px-4">
           <div className="w-full flex flex-col gap-2">
             {REVIEW_STEPS.map((label, i) => (
               <div key={label} className={`flex items-center gap-3 text-sm transition-all duration-500 ${i <= reviewStep ? "opacity-100" : "opacity-30"}`}>
