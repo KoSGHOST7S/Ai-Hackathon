@@ -12,9 +12,24 @@ services:
     environment:
       # Override DATABASE_URL to use Docker service hostname instead of localhost
       - DATABASE_URL=postgresql://assignmint:password@db:5432/assignmint?schema=public
+      - AGENTS_URL=http://agents:8000
     depends_on:
       db:
         condition: service_healthy
+      agents:
+        condition: service_started
+
+  agents:
+    build:
+      context: ./apps/agents
+    ports:
+      - "8000:8000"
+    environment:
+      - WATSONX_API_KEY=${WATSONX_API_KEY}
+      - WATSONX_PROJECT_ID=${WATSONX_PROJECT_ID}
+      - WATSONX_URL=${WATSONX_URL}
+      - GRANITE_MODEL=${GRANITE_MODEL}
+    restart: unless-stopped
 
   db:
     image: postgres:17-alpine
