@@ -1,0 +1,48 @@
+name: Build Extension
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/extension/**"
+      - ".github/workflows/build-extension.yml"
+  pull_request:
+    paths:
+      - "apps/extension/**"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm --filter extension install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter extension build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Package zip
+        run: |
+          cd apps/extension
+          zip -r ../../assignmint-extension.zip dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: assignmint-extension
+          path: assignmint-extension.zip
+          retention-days: 30
