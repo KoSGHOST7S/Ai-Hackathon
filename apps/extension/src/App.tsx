@@ -5,11 +5,14 @@ import { TodayView } from "@/components/views/TodayView";
 import { PlanView } from "@/components/views/PlanView";
 import { MeView } from "@/components/views/MeView";
 import { SetupView } from "@/components/views/SetupView";
+import { AssignmentDetailView } from "@/components/views/AssignmentDetailView";
 import { useCanvasUrl } from "@/hooks/useCanvasUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanvasProfile } from "@/hooks/useCanvasProfile";
+import { useAssignments } from "@/hooks/useAssignments";
 import { apiFetch } from "@/lib/api";
 import type { MeResponse } from "shared";
+import type { CanvasAssignment, AnalysisResult } from "@/types/analysis";
 
 const VIEW_TITLE: Record<Tab, string> = {
   today: "Today",
@@ -22,11 +25,14 @@ type OnboardingStep = "account" | "canvas" | "done";
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
   const { jwt, user, isLoading, logout, signup, login } = useAuth();
-  const { canvasName, canvasAvatarUrl, isLoaded: profileLoaded, setProfile, clearProfile } = useCanvasProfile();
+  const { canvasName, canvasAvatarUrl, setProfile, clearProfile } = useCanvasProfile();
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("account");
   const [meData, setMeData] = useState<MeResponse | null>(null);
   const [meCheckDone, setMeCheckDone] = useState(false);
   const { assignmentInfo } = useCanvasUrl();
+  const [selectedAssignment, setSelectedAssignment] = useState<CanvasAssignment | null>(null);
+  const [analysisResults] = useState<Record<string, AnalysisResult>>({});
+  const { assignments, loading: assignmentsLoading } = useAssignments(jwt);
 
   const applyMe = useCallback((me: MeResponse) => {
     setMeData(me);
@@ -49,6 +55,16 @@ export default function App() {
       .finally(() => setMeCheckDone(true));
   }, [jwt, applyMe]);
 
+  // Auto-navigate to detected Canvas assignment
+  useEffect(() => {
+    if (!assignmentInfo || assignments.length === 0) return;
+    const match = assignments.find(
+      (a) => String(a.id) === assignmentInfo.assignmentId &&
+             (a.courseId === assignmentInfo.courseId || String(a.courseId) === assignmentInfo.courseId)
+    );
+    if (match) setSelectedAssignment(match);
+  }, [assignmentInfo, assignments]);
+
   if (isLoading || !meCheckDone) {
     return (
       <div className="w-[390px] h-[600px] bg-background flex items-center justify-center">
@@ -66,8 +82,6 @@ export default function App() {
           jwt={jwt}
           onStep1Complete={() => setOnboardingStep("canvas")}
           onComplete={async () => {
-            // Re-fetch /auth/me so canvasName/canvasAvatarUrl are populated
-            // before the dashboard renders (server already stored them by now)
             if (jwt) {
               try {
                 const me = await apiFetch<MeResponse>("/auth/me", {}, jwt);
@@ -100,8 +114,12 @@ export default function App() {
             <span className="text-base tracking-tight font-display">
               <span className="text-foreground font-bold">Assign</span><span className="text-primary font-bold">mint.ai</span>
             </span>
-            <span className="mx-2 text-border select-none">·</span>
-            <span className="text-sm font-medium text-foreground">{VIEW_TITLE[tab]}</span>
+            {!selectedAssignment && (
+              <>
+                <span className="mx-2 text-border select-none">·</span>
+                <span className="text-sm font-medium text-foreground">{VIEW_TITLE[tab]}</span>
+              </>
+            )}
           </div>
           <div className="h-7 w-7 rounded-full bg-primary/12 border border-primary/20 flex items-center justify-center overflow-hidden">
             {avatarUrl ? (
@@ -116,31 +134,47 @@ export default function App() {
             )}
           </div>
         </div>
-
-        {assignmentInfo && (
-          <div className="px-4 py-2 bg-primary/10 border-t border-primary/20 flex items-center gap-2 text-xs text-primary-foreground">
-            <span className="flex-1 text-primary font-medium">Canvas Assignment Detected</span>
-            <div className="flex items-center gap-2 opacity-80 text-primary">
-              <span className="bg-primary/20 px-1.5 py-0.5 rounded">C: {assignmentInfo.courseId}</span>
-              <span className="bg-primary/20 px-1.5 py-0.5 rounded">A: {assignmentInfo.assignmentId}</span>
-            </div>
-          </div>
-        )}
       </header>
 
       <main className="flex-1 min-h-0 p-4 overflow-hidden">
-        {tab === "today" && <TodayView displayName={displayName} />}
-        {tab === "plan" && <PlanView />}
-        {tab === "me" && (
-          <MeView
-            user={user}
-            meData={meData}
-            cachedAvatarUrl={avatarUrl}
-            onLogout={async () => {
-              await clearProfile();
-              logout();
-            }}
+        {selectedAssignment ? (
+          <AssignmentDetailView
+            assignment={selectedAssignment}
+            courseId={selectedAssignment.courseId ?? String(selectedAssignment.id)}
+            assignmentId={String(selectedAssignment.id)}
+            jwt={jwt!}
+            onBack={() => setSelectedAssignment(null)}
           />
+        ) : (
+          <>
+            {tab === "today" && (
+              <TodayView
+                displayName={displayName}
+                assignments={assignments}
+                loading={assignmentsLoading}
+                analysisResults={analysisResults}
+                onSelectAssignment={setSelectedAssignment}
+              />
+            )}
+            {tab === "plan" && (
+              <PlanView
+                assignments={assignments}
+                loading={assignmentsLoading}
+                onSelectAssignment={setSelectedAssignment}
+              />
+            )}
+            {tab === "me" && (
+              <MeView
+                user={user}
+                meData={meData}
+                cachedAvatarUrl={avatarUrl}
+                onLogout={async () => {
+                  await clearProfile();
+                  logout();
+                }}
+              />
+            )}
+          </>
         )}
       </main>
 
