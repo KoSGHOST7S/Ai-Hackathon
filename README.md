@@ -1,6 +1,6 @@
 # Assignmint.ai
 
-AI-powered assignment analysis for Canvas LMS. A Chrome extension that generates grading rubrics, milestone plans, and lets you chat with an AI about any assignment — powered by IBM watsonx Granite.
+AI-powered assignment analysis for Canvas LMS. A Chrome extension that generates grading rubrics, milestone plans, lets you chat with an AI about any assignment, and scores your work against the rubric before you submit — powered by IBM watsonx Granite.
 
 ## Architecture
 
@@ -14,7 +14,12 @@ packages/
 └── shared/      Shared TypeScript types
 ```
 
-**How it works:** The extension detects Canvas assignment pages, fetches assignment data through the Express server, which calls the Python agents service. Three AI agents run sequentially — rubric generator, rubric validator, milestone builder — with results streamed back via SSE and persisted in Postgres. Users can also chat with the AI about any analyzed assignment.
+**How it works:** The extension detects Canvas assignment pages, fetches assignment data through the Express server, which calls the Python agents service. Two multi-agent pipelines run sequentially via SSE streaming:
+
+1. **Analysis pipeline** (3 agents): rubric generator → rubric validator → milestone builder
+2. **Review pipeline** (3 agents): scorer → feedback writer → review validator
+
+Results are persisted in Postgres. Users can also chat with the AI about any analyzed assignment, and submit their work (PDF/DOCX/text) for pre-submission scoring against the generated rubric.
 
 ## Prerequisites
 
@@ -145,6 +150,8 @@ Authentication, Canvas API proxy, and analysis orchestration.
 | `/assignments/results` | GET | List all analyzed assignment IDs |
 | `/assignments/:cid/:aid/result` | GET | Get cached analysis result |
 | `/assignments/:cid/:aid/chat` | POST | Chat about an analyzed assignment (SSE) |
+| `/assignments/:cid/:aid/review` | POST | Submit work for AI scoring (SSE streaming) |
+| `/assignments/:cid/:aid/review` | GET | Get cached review result |
 
 All endpoints except `/health`, `/auth/signup`, and `/auth/login` require a JWT bearer token.
 
@@ -159,11 +166,18 @@ Three-agent AI pipeline using IBM watsonx Granite.
 | `/analyze/stream` | POST | Run pipeline with SSE progress events |
 | `/chat` | POST | Chat completion with system context (SSE) |
 | `/parse-file` | POST | Parse PDF/DOCX file → plain text |
+| `/review` | POST | Run review pipeline (returns JSON) |
+| `/review/stream` | POST | Run review pipeline with SSE progress events |
 
-**Pipeline flow:**
+**Analysis pipeline:**
 1. **Rubric Generator** — takes assignment description + Canvas rubric + file contents → generates structured rubric JSON (4 levels per criterion)
 2. **Rubric Validator** — checks rubric against assignment requirements, fixes gaps
 3. **Milestone Generator** — creates 4–7 ordered milestones mapped to rubric criteria
+
+**Review pipeline:**
+1. **Scorer** — reads student submission against the rubric → assigns a level + points + feedback per criterion
+2. **Feedback Writer** — reads scored rubric + submission → writes strengths, improvements, and next steps
+3. **Review Validator** — validates scores are consistent with feedback, checks all criteria covered
 
 ### Chrome Extension (`apps/extension`)
 
@@ -174,7 +188,7 @@ React popup (390×600px) with sub-page navigation.
 - **Plan** — week calendar with navigation, assignments grouped by day
 - **Profile** — Canvas connection status, assignment/analysis/course stats
 - **Assignment Detail** — tappable rows for description, rubric criteria, milestones, chat
-- **Sub-pages** — DescriptionPage, CriterionPage (color-coded levels), MilestonePage (with completion toggle), ChatPage (streaming AI responses)
+- **Sub-pages** — DescriptionPage, CriterionPage (color-coded levels), MilestonePage (with completion toggle), ChatPage (streaming AI responses), SubmitPage (file upload / text paste), ReviewPage (full scorecard with per-criterion feedback)
 
 **Auto-detection:** When you open the popup while on a Canvas assignment page (`/courses/*/assignments/*`), it automatically navigates to that assignment's detail view.
 
@@ -185,6 +199,7 @@ PostgreSQL with Prisma ORM. Three models:
 - **User** — email, password (bcrypt), encrypted Canvas token, profile info
 - **Assignment** — Canvas assignment tracking
 - **AnalysisResult** — persisted rubric + milestones JSON per user/assignment
+- **ReviewResult** — persisted review scorecard (scores, strengths, improvements, next steps) per user/assignment
 
 ```bash
 cd apps/server
