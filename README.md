@@ -45,7 +45,7 @@ cp .env.example .env
 | `WATSONX_API_KEY` | IBM watsonx.ai API key | Yes |
 | `WATSONX_PROJECT_ID` | watsonx.ai project ID | Yes |
 | `WATSONX_URL` | watsonx.ai endpoint | Yes (default: `https://us-south.ml.cloud.ibm.com/`) |
-| `GRANITE_MODEL` | Model ID for analysis | No (default: `gpt-oss-120b`) |
+| `GRANITE_MODEL` | Model ID for analysis | No (default: `openai/gpt-oss-120b`) |
 | `CANVAS_API_KEY` | Canvas LMS API key (for testing) | No |
 | `CANVAS_BASE_URL` | Canvas instance URL (for testing) | No |
 
@@ -319,7 +319,7 @@ npx prisma generate         # Regenerate client after schema changes
 | Extension | React 19, TypeScript, Vite, Tailwind CSS, Chrome MV3 |
 | API Server | Express, TypeScript, Prisma, PostgreSQL, JWT |
 | AI Agents | Python 3.13, FastAPI, IBM watsonx.ai SDK, Pydantic v2 |
-| AI Model | gpt-oss-120b (via watsonx endpoint) |
+| AI Model | openai/gpt-oss-120b (via watsonx endpoint) |
 | File Parsing | pymupdf (PDF), python-docx (DOCX) |
 | Package Management | pnpm (Node.js), uv (Python) |
 | Infrastructure | Docker Compose, PostgreSQL 17 |
