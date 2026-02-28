@@ -70,13 +70,13 @@ export function SlideTransition<TKey extends string>({
   }, [transition]);
 
   if (!transition || !layers) {
-    return <div className={cn("relative h-full", className)}>{renderScene(displayedKey)}</div>;
+    return <div className={cn("relative h-full overflow-hidden bg-background", className)}>{renderScene(displayedKey)}</div>;
   }
 
   return (
-    <div className={cn("relative h-full overflow-hidden", className)}>
-      <div className="absolute inset-0">{renderScene(layers.baseKey)}</div>
-      <div className={cn("absolute inset-0 pointer-events-none", layers.movingClassName)}>
+    <div className={cn("relative h-full overflow-hidden isolate bg-background", className)}>
+      <div className="absolute inset-0 z-0 bg-background overflow-hidden">{renderScene(layers.baseKey)}</div>
+      <div className={cn("absolute inset-0 z-10 pointer-events-none bg-background overflow-hidden", layers.movingClassName)}>
         {renderScene(layers.movingKey)}
       </div>
     </div>
