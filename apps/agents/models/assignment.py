@@ -1,6 +1,11 @@
 from pydantic import BaseModel
 
 
+class FileContent(BaseModel):
+    name: str
+    text: str
+
+
 class AnalyzeRequest(BaseModel):
     name: str
     description: str
@@ -12,6 +17,7 @@ class AnalyzeRequest(BaseModel):
     attachment_names: list[str] = []
     # Field names are camelCase to match LLM JSON output directly (no alias needed)
     canvas_rubric_summary: str | None = None  # existing Canvas rubric as plain text, if any
+    file_contents: list[FileContent] = []
 
 
 class RubricLevel(BaseModel):

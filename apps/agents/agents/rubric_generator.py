@@ -16,6 +16,9 @@ async def generate_rubric(assignment: AnalyzeRequest, model: ModelInference) -> 
         parts.append(f"Submitted files: {', '.join(assignment.attachment_names)}")
     if assignment.canvas_rubric_summary:
         parts.append(f"\nExisting Canvas rubric (use as basis):\n{assignment.canvas_rubric_summary}")
+    if assignment.file_contents:
+        for fc in assignment.file_contents:
+            parts.append(f"\nAttached file — {fc.name}:\n{fc.text[:5000]}")
     parts.append(f"\nAssignment description:\n{assignment.description}")
     user_msg = "\n".join(parts)
     resp = model.chat(messages=[

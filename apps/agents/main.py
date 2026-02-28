@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.env"))
 
+from lib.file_parser import parse_file
 from models.assignment import AnalyzeRequest, AnalyzeResponse
 from models.chat import ChatRequest
 from workflow.pipeline import run_pipeline, stream_pipeline
@@ -25,6 +26,15 @@ app = FastAPI(title="Assignmint Agents", lifespan=lifespan)
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.post("/parse-file")
+async def parse_file_endpoint(file: UploadFile = File(...)) -> dict:
+    content = await file.read()
+    text = parse_file(content, file.filename or "unknown")
+    if text is None:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.filename}")
+    return {"name": file.filename, "text": text[:10000]}
 
 
 @app.post("/analyze", response_model=AnalyzeResponse)
