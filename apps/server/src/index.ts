@@ -8,6 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 import authRouter from "./routes/auth";
 import canvasRouter from "./routes/canvas";
+import assignmentsRouter from "./routes/assignments";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -47,6 +48,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/auth", authRouter);
 app.use("/canvas", canvasRouter);
+app.use("/assignments", assignmentsRouter);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

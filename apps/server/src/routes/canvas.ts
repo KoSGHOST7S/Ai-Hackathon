@@ -1,24 +1,42 @@
 // apps/server/src/routes/canvas.ts
 import { Router, Response } from "express";
 import { requireAuth, AuthRequest } from "../middleware/auth";
-import { decrypt } from "../lib/crypto";
-import { prisma } from "../lib/prisma";
+import { getCanvasCredentials, canvasFetch } from "../lib/canvas";
 
 const router = Router();
 
-async function getCanvasCredentials(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user?.canvasBaseUrl || !user?.canvasToken) return null;
-  return { baseUrl: user.canvasBaseUrl, apiKey: decrypt(user.canvasToken) };
-}
+// GET /canvas/assignments — all assignments across all active courses
+router.get("/assignments", requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const creds = await getCanvasCredentials(req.userId!);
+    if (!creds) { res.status(400).json({ error: "Canvas not configured" }); return; }
 
-async function canvasFetch(baseUrl: string, apiKey: string, path: string) {
-  const res = await fetch(`${baseUrl}/api/v1${path}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!res.ok) throw new Error(`Canvas API error: ${res.status}`);
-  return res.json();
-}
+    const courses: Array<{ id: number; name: string; course_code: string }> =
+      await canvasFetch(creds.baseUrl, creds.apiKey, "/courses?enrollment_state=active&per_page=50");
+
+    const results = await Promise.all(
+      courses.map(async (course) => {
+        try {
+          const assignments = await canvasFetch(
+            creds.baseUrl, creds.apiKey,
+            `/courses/${course.id}/assignments?per_page=50&order_by=due_at`
+          );
+          return (assignments as Array<Record<string, unknown>>).map((a) => ({
+            ...a,
+            courseId: course.id,
+            courseName: course.name,
+            courseCode: course.course_code,
+          }));
+        } catch { return []; }
+      })
+    );
+
+    res.json(results.flat());
+  } catch (err) {
+    console.error("canvas all-assignments error:", err);
+    res.status(502).json({ error: "Failed to fetch assignments" });
+  }
+});
 
 // GET /canvas/courses
 router.get("/courses", requireAuth, async (req: AuthRequest, res: Response) => {
