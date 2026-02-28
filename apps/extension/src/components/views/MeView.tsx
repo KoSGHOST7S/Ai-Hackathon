@@ -12,9 +12,10 @@ interface Props {
   analyzedCount: number;
   courseCount: number;
   onLogout: () => void;
+  onEditCanvas: () => void;
 }
 
-export function MeView({ user, meData, cachedAvatarUrl, assignmentCount, analyzedCount, courseCount, onLogout }: Props) {
+export function MeView({ user, meData, cachedAvatarUrl, assignmentCount, analyzedCount, courseCount, onLogout, onEditCanvas }: Props) {
   const displayName = meData?.canvasName ?? null;
   const initials = displayName
     ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
@@ -44,14 +45,23 @@ export function MeView({ user, meData, cachedAvatarUrl, assignmentCount, analyze
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-foreground">Canvas LMS</p>
             {meData?.canvasBaseUrl ? (
-              <p className="text-[10px] text-muted-foreground mt-0.5">{meData.canvasBaseUrl}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{meData.canvasBaseUrl}</p>
             ) : (
               <p className="text-[10px] text-muted-foreground mt-0.5">Not connected</p>
             )}
           </div>
-          {meData?.canvasBaseUrl && (
-            <div className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" title="Connected" />
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {meData?.canvasBaseUrl && (
+              <div className="h-2 w-2 rounded-full bg-emerald-500" title="Connected" />
+            )}
+            <button
+              type="button"
+              onClick={onEditCanvas}
+              className="text-[10px] font-medium text-primary hover:underline"
+            >
+              Edit
+            </button>
+          </div>
         </div>
       </Card>
 
