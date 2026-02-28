@@ -54,6 +54,7 @@ export function AssignmentDetailView({
     new Set(initialSession?.checkedMilestones ?? [])
   );
   const hydratedRef = useRef(false);
+  const shouldAutoOpenReviewRef = useRef(false);
   const selectedMilestoneIndex = subPage?.type === "milestone" ? subPage.index : -1;
   const totalMilestones = result?.milestones.milestones.length ?? 0;
 
@@ -96,7 +97,10 @@ export function AssignmentDetailView({
   }, [courseId, assignmentId]);
 
   useEffect(() => {
-    if (reviewStatus === "done") openReview();
+    if (reviewStatus === "done" && shouldAutoOpenReviewRef.current) {
+      shouldAutoOpenReviewRef.current = false;
+      openReview();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewStatus]);
 
@@ -156,7 +160,7 @@ export function AssignmentDetailView({
           reviewStep={reviewStep}
           reviewStatus={reviewStatus}
           reviewError={reviewError}
-          onSubmit={(body) => { submitForReview(courseId, assignmentId, body); }}
+          onSubmit={(body) => { shouldAutoOpenReviewRef.current = true; submitForReview(courseId, assignmentId, body); }}
           onBack={close}
         />
       );

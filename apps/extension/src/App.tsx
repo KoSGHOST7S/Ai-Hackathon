@@ -292,7 +292,7 @@ export default function App() {
         )}
       </main>
 
-      <BottomNav active={tab} onChange={(t) => { setCanvasEdit(false); setTab(t); }} />
+      <BottomNav active={tab} onChange={(t) => { setCanvasEdit(false); setSelectedAssignment(null); setTab(t); }} />
     </div>
   );
 }
