@@ -1,4 +1,4 @@
-import type { CanvasAssignment, AnalysisResult } from "@/types/analysis";
+import type { CanvasAssignment, AnalysisResult, ReviewResult } from "@/types/analysis";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -107,6 +107,55 @@ export async function* streamAnalysis(
       } catch { /* malformed chunk — skip */ }
     }
   }
+}
+
+export type ReviewStreamEvent =
+  | { type: "progress"; step: number; label: string }
+  | { type: "done"; result: ReviewResult }
+  | { type: "error"; error: string };
+
+export async function* streamReviewSubmission(
+  jwt: string, courseId: string, assignmentId: string,
+  body: { submission_text?: string; submission_files?: Array<{ name: string; text: string }> }
+): AsyncGenerator<ReviewStreamEvent> {
+  const response = await fetch(`${BASE_URL}/assignments/${courseId}/${assignmentId}/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${jwt}` },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok || !response.body) {
+    yield { type: "error", error: `HTTP ${response.status}` }; return;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+    for (const raw of events) {
+      if (!raw.trim()) continue;
+      const lines = raw.split("\n");
+      const eventType = lines.find((l) => l.startsWith("event:"))?.slice(6).trim();
+      const dataStr = lines.find((l) => l.startsWith("data:"))?.slice(5).trim();
+      if (!dataStr) continue;
+      try {
+        const data = JSON.parse(dataStr);
+        if (eventType === "progress") yield { type: "progress", step: data.step, label: data.label };
+        else if (eventType === "done") yield { type: "done", result: data as ReviewResult };
+        else if (eventType === "error") yield { type: "error", error: data.error };
+      } catch { /* skip */ }
+    }
+  }
+}
+
+export async function getReviewResult(
+  jwt: string, courseId: string, assignmentId: string
+): Promise<ReviewResult | null> {
+  try { return await apiFetch<ReviewResult>(`/assignments/${courseId}/${assignmentId}/review`, {}, jwt); }
+  catch { return null; }
 }
 
 export type ChatStreamEvent =

@@ -17,3 +17,15 @@ export interface Rubric           { criteria: RubricCriterion[]; totalPoints: nu
 export interface Milestone        { order: number; title: string; description: string; estimatedHours: number; deliverable: string; }
 export interface Milestones       { milestones: Milestone[]; }
 export interface AnalysisResult   { rubric: Rubric; milestones: Milestones; }
+
+export interface CriterionScore {
+  criterionName: string; level: string; points: number; maxPoints: number; feedback: string;
+}
+export interface ReviewResult {
+  scores: CriterionScore[];
+  totalScore: number;
+  totalPossible: number;
+  strengths: string[];
+  improvements: string[];
+  nextSteps: string[];
+}
