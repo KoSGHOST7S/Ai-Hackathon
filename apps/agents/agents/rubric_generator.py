@@ -17,7 +17,8 @@ async def generate_rubric(assignment: AnalyzeRequest, model: ModelInference) -> 
     raw = resp["choices"][0]["message"]["content"].strip()
     # Strip markdown code fences if model wraps output
     if raw.startswith("```"):
-        raw = raw.split("```")[1]
+        raw = raw.split("```")[1].lstrip()
         if raw.startswith("json"):
             raw = raw[4:]
+    raw = raw.strip()
     return Rubric.model_validate(json.loads(raw))

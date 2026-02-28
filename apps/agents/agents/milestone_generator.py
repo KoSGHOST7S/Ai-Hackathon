@@ -18,7 +18,8 @@ async def generate_milestones(
     ])
     raw = resp["choices"][0]["message"]["content"].strip()
     if raw.startswith("```"):
-        raw = raw.split("```")[1]
+        raw = raw.split("```")[1].lstrip()
         if raw.startswith("json"):
             raw = raw[4:]
+    raw = raw.strip()
     return Milestones.model_validate(json.loads(raw))
