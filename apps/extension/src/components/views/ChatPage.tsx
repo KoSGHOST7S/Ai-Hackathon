@@ -32,20 +32,43 @@ export function ChatPage({ courseId, assignmentId, assignmentName, jwt, onBack }
     if (!text || sending) return;
     setInput("");
     const userMsg: ChatMsg = { role: "user", content: text };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
+    const historyWithUser = [...messages, userMsg];
+    // Add user message + empty assistant placeholder in one state update
+    setMessages([...historyWithUser, { role: "assistant", content: "" }]);
     setSending(true);
 
     try {
-      for await (const event of streamChat(jwt, courseId, assignmentId, newMessages)) {
-        if (event.type === "done") {
-          setMessages((prev) => [...prev, { role: "assistant", content: event.content }]);
+      for await (const event of streamChat(jwt, courseId, assignmentId, historyWithUser)) {
+        if (event.type === "token") {
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === "assistant") {
+              updated[updated.length - 1] = { ...last, content: last.content + event.token };
+            }
+            return updated;
+          });
         } else if (event.type === "error") {
-          setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${event.error}` }]);
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === "assistant") {
+              updated[updated.length - 1] = { ...last, content: `Error: ${event.error}` };
+            }
+            return updated;
+          });
         }
+        // "done" event: message already assembled from tokens, nothing to do
       }
     } catch {
-      setMessages((prev) => [...prev, { role: "assistant", content: "Something went wrong. Try again." }]);
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last?.role === "assistant" && last.content === "") {
+          updated[updated.length - 1] = { ...last, content: "Something went wrong. Try again." };
+        }
+        return updated;
+      });
     } finally {
       setSending(false);
     }
@@ -85,12 +108,12 @@ export function ChatPage({ courseId, assignmentId, assignmentName, jwt, onBack }
             )}
           </div>
         ))}
-        {sending && (
-          <div className="flex gap-2 items-center">
-            <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+        {sending && messages[messages.length - 1]?.content === "" && (
+          <div className="flex gap-2 items-center -mt-1 ml-7">
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Loader2 className="h-3 w-3 text-primary animate-spin" />
-            </div>
-            <span className="text-xs text-muted-foreground">Thinking…</span>
+              Thinking…
+            </span>
           </div>
         )}
       </div>

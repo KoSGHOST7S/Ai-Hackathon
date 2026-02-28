@@ -16,9 +16,9 @@ async def write_feedback(request: ReviewRequest, scores: dict, model: ModelInfer
         f"Scored rubric:\n{json.dumps(scores, indent=2)}\n\n"
         f"Student submission:\n{submission}"
     )
-    resp = model.chat(messages=[
+    resp = await model.achat(messages=[
         {"role": "system", "content": FEEDBACK_SYSTEM},
         {"role": "user", "content": user_msg},
     ])
     raw = resp["choices"][0]["message"]["content"]
-    return parse_llm_json(raw, model)
+    return await parse_llm_json(raw, model)

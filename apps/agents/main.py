@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -10,6 +11,7 @@ from fastapi.responses import StreamingResponse
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.env"))
 
 from lib.file_parser import parse_file
+from lib.watsonx import get_model
 from models.assignment import AnalyzeRequest, AnalyzeResponse
 from models.chat import ChatRequest
 from models.review import ReviewRequest, ReviewResponse
@@ -86,15 +88,42 @@ async def review_stream(req: ReviewRequest) -> StreamingResponse:
 async def chat(req: ChatRequest) -> StreamingResponse:
     async def generate():
         try:
-            from lib.watsonx import get_model
             model = get_model()
             messages = [
                 {"role": "system", "content": req.system_context},
                 *[{"role": m.role, "content": m.content} for m in req.messages],
             ]
-            resp = model.chat(messages=messages)
-            content = resp["choices"][0]["message"]["content"]
-            yield f'event: done\ndata: {json.dumps({"content": content})}\n\n'
+
+            loop = asyncio.get_running_loop()
+            queue: asyncio.Queue[object] = asyncio.Queue()
+            _DONE = object()
+
+            def _stream_in_thread():
+                try:
+                    for chunk in model.chat_stream(messages=messages):
+                        loop.call_soon_threadsafe(queue.put_nowait, chunk)
+                except Exception as exc:
+                    loop.call_soon_threadsafe(queue.put_nowait, exc)
+                finally:
+                    loop.call_soon_threadsafe(queue.put_nowait, _DONE)
+
+            loop.run_in_executor(None, _stream_in_thread)
+
+            while True:
+                item = await queue.get()
+                if item is _DONE:
+                    break
+                if isinstance(item, BaseException):
+                    yield f'event: error\ndata: {json.dumps({"error": str(item)})}\n\n'
+                    return
+                chunk = item  # type: ignore[assignment]
+                choices = (chunk.get("choices") or []) if isinstance(chunk, dict) else []
+                if choices:
+                    token = (choices[0].get("delta") or {}).get("content") or ""
+                    if token:
+                        yield f'event: token\ndata: {json.dumps({"token": token})}\n\n'
+
+            yield f'event: done\ndata: {json.dumps({})}\n\n'
         except Exception as exc:
             logging.exception("Chat failed")
             yield f'event: error\ndata: {json.dumps({"error": str(exc)})}\n\n'

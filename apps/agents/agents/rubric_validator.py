@@ -12,13 +12,13 @@ async def validate_rubric(
         f"Description:\n{assignment.description}\n\n"
         f"Draft rubric:\n{rubric.model_dump_json(indent=2)}"
     )
-    resp = model.chat(messages=[
+    resp = await model.achat(messages=[
         {"role": "system", "content": VALIDATOR_SYSTEM},
         {"role": "user",   "content": user_msg},
     ])
     raw = resp["choices"][0]["message"]["content"]
     from lib.json_repair import parse_llm_json
     try:
-        return Rubric.model_validate(parse_llm_json(raw, model))
+        return Rubric.model_validate(await parse_llm_json(raw, model))
     except Exception:
         return rubric

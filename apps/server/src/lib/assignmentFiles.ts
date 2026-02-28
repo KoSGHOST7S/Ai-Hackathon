@@ -181,15 +181,17 @@ export async function fetchAssignmentLinkedFileContents(
     links.push({ url: resolved, name, useCanvasAuth: canvasLink });
   });
 
-  for (const link of links) {
-    if (contents.length >= MAX_LINKED_FILES) break;
-    try {
-      const parsed = await downloadAndParseLinkedFile(baseUrl, link.url, apiKey, link.name, link.useCanvasAuth);
-      if (!parsed) continue;
-      contents.push(parsed);
-      names.push(parsed.name);
-    } catch {
-      // Non-fatal: invalid/missing links should not block analysis.
+  // Download and parse all candidate links concurrently (capped at MAX_LINKED_FILES)
+  const candidates = links.slice(0, MAX_LINKED_FILES);
+  const results = await Promise.allSettled(
+    candidates.map((link) =>
+      downloadAndParseLinkedFile(baseUrl, link.url, apiKey, link.name, link.useCanvasAuth)
+    )
+  );
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value) {
+      contents.push(r.value);
+      names.push(r.value.name);
     }
   }
 

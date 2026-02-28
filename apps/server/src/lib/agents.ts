@@ -167,7 +167,12 @@ export async function* streamReview(req: ReviewRequest): AsyncGenerator<SseProgr
 export interface ChatMessage { role: string; content: string; }
 export interface ChatRequest { system_context: string; messages: ChatMessage[]; }
 
-export async function* streamChat(req: ChatRequest): AsyncGenerator<{ type: "done"; content: string } | { type: "error"; error: string }> {
+export type ChatStreamEvent =
+  | { type: "token"; token: string }
+  | { type: "done" }
+  | { type: "error"; error: string };
+
+export async function* streamChat(req: ChatRequest): AsyncGenerator<ChatStreamEvent> {
   const res = await fetch(`${AGENTS_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -191,7 +196,8 @@ export async function* streamChat(req: ChatRequest): AsyncGenerator<{ type: "don
       if (!dataStr) continue;
       try {
         const data = JSON.parse(dataStr);
-        if (eventType === "done") yield { type: "done", content: data.content };
+        if (eventType === "token") yield { type: "token", token: data.token };
+        else if (eventType === "done") yield { type: "done" };
         else if (eventType === "error") yield { type: "error", error: data.error };
       } catch { /* skip */ }
     }

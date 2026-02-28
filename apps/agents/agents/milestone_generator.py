@@ -13,10 +13,10 @@ async def generate_milestones(
         f"Explicit requirements:\n{requirements.model_dump_json(indent=2)}\n\n"
         f"Rubric:\n{rubric.model_dump_json(indent=2)}"
     )
-    resp = model.chat(messages=[
+    resp = await model.achat(messages=[
         {"role": "system", "content": MILESTONE_SYSTEM},
         {"role": "user",   "content": user_msg},
     ])
     raw = resp["choices"][0]["message"]["content"]
     from lib.json_repair import parse_llm_json
-    return Milestones.model_validate(parse_llm_json(raw, model))
+    return Milestones.model_validate(await parse_llm_json(raw, model))

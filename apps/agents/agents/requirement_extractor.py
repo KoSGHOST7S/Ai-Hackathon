@@ -26,10 +26,10 @@ async def extract_requirements(
     assignment: AnalyzeRequest, model: ModelInference
 ) -> Requirements:
     user_msg = _build_requirement_context(assignment)
-    resp = model.chat(messages=[
+    resp = await model.achat(messages=[
         {"role": "system", "content": REQUIREMENT_EXTRACTOR_SYSTEM},
         {"role": "user", "content": user_msg},
     ])
     raw = resp["choices"][0]["message"]["content"]
-    parsed = parse_llm_json(raw, model)
+    parsed = await parse_llm_json(raw, model)
     return Requirements.model_validate(parsed)

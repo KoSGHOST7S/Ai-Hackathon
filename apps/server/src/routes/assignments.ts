@@ -5,25 +5,10 @@ import { prisma } from "../lib/prisma";
 import { callAgentsService, streamFromAgentsService, parseFileViaAgents, streamChat, streamReview, type AgentsAnalyzeRequest, type FileContent, type ReviewRequest } from "../lib/agents";
 import { canvasFetch, getCanvasCredentials } from "../lib/canvas";
 import { fetchAssignmentLinkedFileContents } from "../lib/assignmentFiles";
+import { stripHtml } from "../lib/html";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-
-/** Strip HTML tags and decode entities (e.g. &nbsp; &amp; &#160;) to plain text. */
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#0*39;/gi, "'")
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(Number(dec)))
-    .replace(/&#x([\da-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 // POST /assignments/parse-file — proxy multipart file to agents service for parsing
 router.post("/parse-file", requireAuth, upload.single("file"), async (req: AuthRequest, res: Response) => {
@@ -269,8 +254,10 @@ router.post("/:courseId/:assignmentId/chat", requireAuth, async (req: AuthReques
     res.flushHeaders();
 
     for await (const event of streamChat({ system_context, messages })) {
-      if (event.type === "done") {
-        res.write(`event: done\ndata: ${JSON.stringify({ content: event.content })}\n\n`);
+      if (event.type === "token") {
+        res.write(`event: token\ndata: ${JSON.stringify({ token: event.token })}\n\n`);
+      } else if (event.type === "done") {
+        res.write(`event: done\ndata: ${JSON.stringify({})}\n\n`);
       } else {
         res.write(`event: error\ndata: ${JSON.stringify({ error: event.error })}\n\n`);
       }

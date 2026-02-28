@@ -35,7 +35,7 @@ def try_parse(raw: str) -> dict | list | None:
         return None
 
 
-def parse_llm_json(raw_response: str, model: ModelInference | None = None) -> dict | list:
+async def parse_llm_json(raw_response: str, model: ModelInference | None = None) -> dict | list:
     """Parse LLM JSON output with extraction, repair, and optional model retry."""
     raw = extract_json(raw_response)
 
@@ -46,7 +46,7 @@ def parse_llm_json(raw_response: str, model: ModelInference | None = None) -> di
     if model is not None:
         logger.warning("JSON parse failed, requesting model repair")
         try:
-            resp = model.chat(messages=[
+            resp = await model.achat(messages=[
                 {"role": "system", "content": REPAIR_PROMPT},
                 {"role": "user", "content": raw},
             ])

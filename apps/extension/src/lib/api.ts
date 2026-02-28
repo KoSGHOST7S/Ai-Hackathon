@@ -258,7 +258,8 @@ export async function getReviewResult(
 }
 
 export type ChatStreamEvent =
-  | { type: "done"; content: string }
+  | { type: "token"; token: string }
+  | { type: "done" }
   | { type: "error"; error: string };
 
 export async function* streamChat(
@@ -290,7 +291,8 @@ export async function* streamChat(
       if (!dataStr) continue;
       try {
         const data = JSON.parse(dataStr);
-        if (eventType === "done") yield { type: "done", content: data.content };
+        if (eventType === "token") yield { type: "token", token: data.token };
+        else if (eventType === "done") yield { type: "done" };
         else if (eventType === "error") yield { type: "error", error: data.error };
       } catch { /* skip */ }
     }

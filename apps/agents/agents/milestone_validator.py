@@ -77,11 +77,11 @@ async def validate_milestones(
         f"Rubric:\n{rubric.model_dump_json(indent=2)}\n\n"
         f"Draft milestones:\n{milestones.model_dump_json(indent=2)}"
     )
-    resp = model.chat(messages=[
+    resp = await model.achat(messages=[
         {"role": "system", "content": MILESTONE_COVERAGE_VALIDATOR_SYSTEM},
         {"role": "user", "content": user_msg},
     ])
     raw = resp["choices"][0]["message"]["content"]
-    parsed = parse_llm_json(raw, model)
+    parsed = await parse_llm_json(raw, model)
     validated = Milestones.model_validate(parsed)
     return ensure_requirement_coverage(requirements, validated)
