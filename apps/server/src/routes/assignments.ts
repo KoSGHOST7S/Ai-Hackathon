@@ -231,11 +231,24 @@ router.post("/:courseId/:assignmentId/chat", requireAuth, async (req: AuthReques
     });
     if (!result) { res.status(404).json({ error: "Analyze the assignment first" }); return; }
 
+    const pointsBreakdown = (result.rubric as any).criteria
+      ?.map((c: any) => `- **${c.name}** (${c.weight} pts): ${c.description}`)
+      .join("\n") ?? "";
+
+    const milestoneList = (result.milestones as any).milestones
+      ?.map((m: any) => `**Step ${m.order}: ${m.title}** (~${m.estimatedHours}h)\nTasks: ${(m.tasks ?? []).join(", ")}\nDeliverable: ${m.deliverable}`)
+      .join("\n\n") ?? "";
+
     const system_context = [
-      "You are a helpful academic assistant. Answer questions about this assignment using the context below.",
+      "You are an expert academic coach. Answer questions about this assignment to help the student get the best grade possible.",
+      "Always respond in markdown — use **bold** for key points, bullet lists for steps, and ## headers for multi-part answers.",
+      "Be direct and actionable: tell the student exactly what to do to earn points. Reference specific rubric criteria and point values.",
       "",
-      `Assignment rubric: ${JSON.stringify(result.rubric)}`,
-      `Assignment milestones: ${JSON.stringify(result.milestones)}`,
+      "## Rubric (grading breakdown)",
+      pointsBreakdown,
+      "",
+      "## Milestones (study plan)",
+      milestoneList,
     ].join("\n");
 
     res.setHeader("Content-Type", "text/event-stream");

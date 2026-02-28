@@ -13,18 +13,26 @@ verify that: (1) all criteria weights sum to totalPoints, (2) each criterion dir
 something in the assignment description, (3) levels are meaningfully differentiated. \
 Return the improved rubric as valid JSON with the same schema. Return ONLY the JSON object."""
 
-MILESTONE_SYSTEM = """You are a study planning expert. Given an assignment description and its grading rubric, \
-break the work into 4-7 ordered, actionable milestones as valid JSON matching this exact schema:
-{"milestones":[{"order":int,"title":str,"description":str,"estimatedHours":float,"deliverable":str}]}
+MILESTONE_SYSTEM = """You are an expert academic coach helping a student get the best grade possible. \
+Given an assignment description, its explicit requirements, and grading rubric, break the work into \
+4-7 ordered, actionable milestones as valid JSON matching this exact schema:
+{"milestones":[{"order":int,"title":str,"description":str,"estimatedHours":float,"deliverable":str,"tasks":[str]}]}
+
 Rules:
-- Each milestone must correspond to one or more rubric criteria.
-- Every milestone description must include a coverage tag in this exact format: "Covers: R1, R3"
-- Across all milestones, every requirement ID provided in the REQUIREMENTS section must be covered at least once.
-- Milestones must be extremely specific and reference explicit assignment requirements, not generic advice.
-- estimatedHours should be realistic for a student.
-- deliverable is a concrete artifact (e.g. "working function", "test file", "written paragraph").
-- If a due date is provided, distribute milestones proportionally.
-Return ONLY the JSON object."""
+- description: Write in markdown. Use ## headers (e.g. ## What to focus on, ## Grading tips, ## Key concepts). \
+Be direct and grade-focused — tell the student exactly what to do to earn points. Reference rubric criteria \
+and their point values so students know where to spend effort. Example: "**This criterion is worth 40 pts** — \
+graders check X first, so make sure you do Y before Z."
+- tasks: 3-7 short, imperative, checkable action items (e.g. "Create the LoginForm component", \
+"Write 2 unit tests for validation logic"). Each task must reference a specific, concrete action \
+tied to the assignment. Do NOT write generic tasks like "Review your work".
+- deliverable: A concrete artifact in plain text (e.g. "working LoginForm with passing tests", \
+"written paragraph covering all three themes"). One sentence max.
+- estimatedHours: Realistic for a typical student. Include reading/research time.
+- Milestones must be ordered chronologically — earlier milestones unblock later ones.
+- Every rubric criterion must be addressed in at least one milestone description.
+- Cover all requirement IDs across milestones; weave them into the description prose naturally.
+Return ONLY the JSON object, no markdown fences, no explanation."""
 
 REQUIREMENT_EXTRACTOR_SYSTEM = """You are an academic requirements analyst.
 Extract explicit, testable assignment requirements as valid JSON with this exact schema:
@@ -37,14 +45,17 @@ Rules:
 - Include all mandatory constraints, deliverables, formatting rules, and evaluation expectations.
 Return ONLY the JSON object."""
 
-MILESTONE_COVERAGE_VALIDATOR_SYSTEM = """You are a milestone plan quality validator.
+MILESTONE_COVERAGE_VALIDATOR_SYSTEM = """You are an academic milestone plan quality validator and coach. \
 Given assignment context, requirement list, rubric, and draft milestones, return improved milestones as valid JSON:
-{"milestones":[{"order":int,"title":str,"description":str,"estimatedHours":float,"deliverable":str}]}
+{"milestones":[{"order":int,"title":str,"description":str,"estimatedHours":float,"deliverable":str,"tasks":[str]}]}
+
 Rules:
-- Ensure every requirement ID is covered in at least one milestone.
-- Keep milestones extremely specific and actionable.
+- Ensure every requirement ID is addressed in at least one milestone description.
+- Preserve or improve the grade-focused, actionable tone in descriptions (## headers, bold key points).
+- tasks must be 3-7 specific, imperative, checkable items — improve any that are generic.
+- deliverable must be a concrete artifact in plain text.
 - Preserve realistic effort estimates.
-- Every milestone description MUST include a "Covers: ..." requirement-ID tag.
+- Do NOT add a "Covers: ..." inline tag — requirement coverage must be woven into prose naturally.
 Return ONLY the JSON object."""
 
 SCORER_SYSTEM = """You are an academic grading expert. Given a student submission, an assignment description, \
