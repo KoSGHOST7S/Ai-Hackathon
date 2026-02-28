@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "lib": ["dom", "ES2017"],
+    "jsx": "react-jsx",
+    "module": "ES2020",
+    "moduleResolution": "bundler",
+    "target": "ES2017",
+    "strict": true,
+    "outDir": "dist",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "typeRoots": ["./node_modules/@types"],
+    "paths": {}
+  },
+  "include": ["src/**/*", "remotion.config.ts"]
+}
