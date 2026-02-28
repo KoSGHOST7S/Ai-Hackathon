@@ -70,6 +70,14 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
             {assignment.points_possible > 0 && (
               <Badge variant="muted">{assignment.points_possible} pts possible</Badge>
             )}
+            {assignment.description && (
+              <div className="w-full text-left bg-muted/40 rounded-lg p-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Assignment</p>
+                <p className="text-xs text-foreground/80 leading-relaxed line-clamp-5">
+                  {(assignment.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}
+                </p>
+              </div>
+            )}
             <Button className="w-full gap-2" onClick={() => analyze(courseId, assignmentId)}>
               <Sparkles className="h-3.5 w-3.5" />
               Analyze with AI
@@ -110,7 +118,10 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
         {status === "done" && result && (
           <>
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Rubric</p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Rubric</p>
+                <span className="text-[10px] text-muted-foreground tabular-nums">{result.rubric.totalPoints} pts total</span>
+              </div>
               <div className="flex flex-col gap-1.5">
                 {result.rubric.criteria.map((c, i) => (
                   <Card key={i} className="shadow-none">
@@ -129,12 +140,19 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
                     {expandedCriteria.has(i) && (
                       <div className="px-3 pb-3 flex flex-col gap-1.5 border-t border-border pt-2">
                         <p className="text-xs text-muted-foreground">{c.description}</p>
-                        {c.levels.map((l, j) => (
-                          <div key={j} className="flex justify-between text-xs">
-                            <span className="text-foreground">{l.label}</span>
-                            <span className="text-muted-foreground">{l.points} pts</span>
-                          </div>
-                        ))}
+                        {c.levels.map((l, j) => {
+                          const levelColor =
+                            j === 0 ? "text-emerald-600 dark:text-emerald-400" :
+                            j === 1 ? "text-blue-600 dark:text-blue-400" :
+                            j === 2 ? "text-amber-600 dark:text-amber-400" :
+                                      "text-rose-600 dark:text-rose-400";
+                          return (
+                            <div key={j} className="flex items-center justify-between text-xs py-0.5">
+                              <span className={`font-medium ${levelColor}`}>{l.label}</span>
+                              <span className="text-muted-foreground tabular-nums">{l.points} pts</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </Card>
@@ -151,16 +169,21 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
                       className="w-full p-3 text-left flex items-start gap-3"
                       onClick={() => toggleMilestone(i)}
                     >
-                      {checkedMilestones.has(i)
-                        ? <CheckCircle2 className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                        : <Circle className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />}
+                      <div className="shrink-0 mt-0.5">
+                        {checkedMilestones.has(i) ? (
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                        ) : (
+                          <div className="h-4 w-4 rounded-full bg-muted border border-border flex items-center justify-center">
+                            <span className="text-[9px] font-bold text-muted-foreground leading-none">{m.order}</span>
+                          </div>
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0 text-left">
                         <p className={`text-sm font-medium leading-snug ${checkedMilestones.has(i) ? "line-through text-muted-foreground" : "text-foreground"}`}>
                           {m.title}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          ~{m.estimatedHours}h · {m.deliverable}
-                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{m.description}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-1">~{m.estimatedHours}h · {m.deliverable}</p>
                       </div>
                     </button>
                   </Card>

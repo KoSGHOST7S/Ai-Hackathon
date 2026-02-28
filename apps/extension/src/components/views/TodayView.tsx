@@ -43,6 +43,21 @@ export function TodayView({ displayName, assignments, loading, analyzedKeys, onS
         </p>
       </div>
 
+      {!loading && assignments.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 shrink-0">
+          {[
+            { label: "Due today", value: dueToday },
+            { label: "Upcoming",  value: upcoming.length },
+            { label: "All",       value: assignments.length },
+          ].map((s) => (
+            <div key={s.label} className="bg-muted/40 rounded-lg py-2 px-2 text-center">
+              <p className="text-lg font-bold text-primary leading-none">{s.value}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 leading-none">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0">
         {loading && (
           <div className="flex items-center justify-center flex-1">

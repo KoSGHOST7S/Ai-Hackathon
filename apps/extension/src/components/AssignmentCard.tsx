@@ -34,8 +34,9 @@ export function AssignmentCard({ assignment, hasAnalysis, isActive, onClick }: P
           </p>
           <div className="flex items-center gap-1 shrink-0">
             {hasAnalysis && (
-              <span title="Analyzed">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span className="inline-flex items-center gap-0.5 bg-primary/10 text-primary rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide shrink-0">
+                <Sparkles className="h-2.5 w-2.5" />
+                AI
               </span>
             )}
             <Badge variant={due.variant}>{due.label}</Badge>
