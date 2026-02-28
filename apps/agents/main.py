@@ -4,12 +4,13 @@ import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../.env"))
 
 from models.assignment import AnalyzeRequest, AnalyzeResponse
+from models.chat import ChatRequest
 from workflow.pipeline import run_pipeline, stream_pipeline
 
 
@@ -46,3 +47,23 @@ async def analyze_stream(req: AnalyzeRequest) -> StreamingResponse:
             yield f'event: error\ndata: {json.dumps({"error": str(exc)})}\n\n'
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.post("/chat")
+async def chat(req: ChatRequest) -> StreamingResponse:
+    async def generate():
+        try:
+            from lib.watsonx import get_model
+            model = get_model()
+            messages = [
+                {"role": "system", "content": req.system_context},
+                *[{"role": m.role, "content": m.content} for m in req.messages],
+            ]
+            resp = model.chat(messages=messages)
+            content = resp["choices"][0]["message"]["content"]
+            yield f'event: done\ndata: {json.dumps({"content": content})}\n\n'
+        except Exception as exc:
+            logging.exception("Chat failed")
+            yield f'event: error\ndata: {json.dumps({"error": str(exc)})}\n\n'
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
