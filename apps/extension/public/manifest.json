@@ -3,7 +3,7 @@
   "name": "assignmint",
   "description": "A minty dashboard popup for assignment productivity.",
   "version": "0.1.0",
-  "permissions": ["activeTab", "tabs", "storage"],
+  "permissions": ["activeTab", "tabs", "storage", "alarms"],
   "host_permissions": [
     "http://localhost:3000/*",
     "https://api.assignmint.ai/*",
