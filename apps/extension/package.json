@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "pnpm run build:chrome",
+    "build:base": "vite build",
+    "build:chrome": "pnpm run build:base && node scripts/select-manifest.mjs chrome",
+    "build:firefox": "pnpm run build:base && node scripts/select-manifest.mjs firefox",
     "preview": "vite preview"
   },
   "keywords": [],

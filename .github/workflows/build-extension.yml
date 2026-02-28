@@ -32,20 +32,35 @@ jobs:
       - name: Install dependencies
         run: pnpm --filter extension install --frozen-lockfile
 
-      - name: Build
-        run: pnpm --filter extension build
+      - name: Build Chrome
+        run: pnpm --filter extension build:chrome
         env:
           VITE_API_URL: https://api.assignmint.ai
 
-      - name: Zip extension
-        run: cd apps/extension/dist && zip -r ../assignmint-extension.zip .
+      - name: Zip Chrome extension
+        run: cd apps/extension/dist && zip -r ../chrome.zip .
+
+      - name: Build Firefox
+        run: pnpm --filter extension build:firefox
+        env:
+          VITE_API_URL: https://api.assignmint.ai
+
+      - name: Zip Firefox extension
+        run: cd apps/extension/dist && zip -r ../firefox.zip .
 
       # Keep the artifact for PR builds (no release on PRs)
-      - name: Upload artifact
+      - name: Upload Chrome artifact
         uses: actions/upload-artifact@v4
         with:
-          name: assignmint-extension
-          path: apps/extension/assignmint-extension.zip
+          name: chrome.zip
+          path: apps/extension/chrome.zip
+          retention-days: 30
+
+      - name: Upload Firefox artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox.zip
+          path: apps/extension/firefox.zip
           retention-days: 30
 
       # Publish/update the "latest" release on every main branch push
@@ -58,4 +73,6 @@ jobs:
           body: "Latest build from main. Install by downloading and loading unpacked in Chrome."
           prerelease: false
           make_latest: true
-          files: apps/extension/assignmint-extension.zip
+          files: |
+            apps/extension/chrome.zip
+            apps/extension/firefox.zip

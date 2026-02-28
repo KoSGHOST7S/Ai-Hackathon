@@ -1,12 +1,12 @@
 # Assignmint.ai
 
-AI-powered assignment analysis for Canvas LMS. A Chrome extension that generates grading rubrics, milestone plans, lets you chat with an AI about any assignment, and scores your work against the rubric before you submit — powered by IBM watsonx Granite.
+AI-powered assignment analysis for Canvas LMS. A browser extension (Chrome + Firefox targets) that generates grading rubrics, milestone plans, lets you chat with an AI about any assignment, and scores your work against the rubric before you submit — powered by IBM watsonx Granite.
 
 ## Architecture
 
 ```
 apps/
-├── extension/   Chrome extension popup (React 19 + Vite + Tailwind)
+├── extension/   Browser extension popup (React 19 + Vite + Tailwind)
 ├── server/      Express API (TypeScript + Prisma + PostgreSQL)
 └── agents/      AI pipeline (Python + FastAPI + IBM watsonx)
 
@@ -98,7 +98,14 @@ cd apps/extension
 pnpm build --watch
 ```
 
-### 5. Load the extension in Chrome
+### 5. Load the extension
+
+Build Chrome target (default):
+
+```bash
+cd apps/extension
+pnpm build:chrome
+```
 
 1. Go to `chrome://extensions`
 2. Enable **Developer mode** (toggle, top-right)
@@ -106,6 +113,19 @@ pnpm build --watch
 4. The extension icon appears in your toolbar
 
 After rebuilds, click the **refresh icon** on the extension card to reload.
+
+Firefox target:
+
+```bash
+cd apps/extension
+pnpm build:firefox
+```
+
+1. Open `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on**
+3. Select `apps/extension/dist/manifest.json`
+
+Note: Firefox may block programmatic popup opening in some contexts; when that happens, the extension opens `index.html` in a tab as a fallback.
 
 ## Full stack with Docker
 
@@ -127,7 +147,7 @@ docker compose exec api sh -c "cd apps/server && npx prisma migrate deploy"
 | `agents` | http://localhost:8000 | Python FastAPI agents service |
 | `db` | localhost:5432 | PostgreSQL 17 |
 
-The extension still needs to be built locally (`cd apps/extension && pnpm build`) and loaded in Chrome.
+The extension still needs to be built locally (`cd apps/extension && pnpm build:chrome`) and loaded in Chrome or Firefox.
 
 ## Public HTTPS deployment (Docker + Caddy)
 
@@ -316,7 +336,7 @@ npx prisma generate         # Regenerate client after schema changes
 
 | Layer | Technology |
 |---|---|
-| Extension | React 19, TypeScript, Vite, Tailwind CSS, Chrome MV3 |
+| Extension | React 19, TypeScript, Vite, Tailwind CSS, MV3 (Chrome + Firefox targets) |
 | API Server | Express, TypeScript, Prisma, PostgreSQL, JWT |
 | AI Agents | Python 3.13, FastAPI, IBM watsonx.ai SDK, Pydantic v2 |
 | AI Model | openai/gpt-oss-120b (via watsonx endpoint) |
@@ -356,5 +376,9 @@ curl -N -X POST http://localhost:8000/analyze/stream \
 ```bash
 pnpm --filter shared build   # Build shared types
 pnpm build:server             # Build API server
-pnpm build:extension          # Build Chrome extension
+pnpm build:extension          # Build extension (Chrome target)
+
+cd apps/extension
+pnpm build:chrome             # Build Chrome manifest into dist/
+pnpm build:firefox            # Build Firefox manifest into dist/
 ```
