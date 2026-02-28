@@ -121,7 +121,11 @@ export async function getAnalysisResult(
   jwt: string, courseId: string, assignmentId: string
 ): Promise<AnalysisResult | null> {
   try {
-    return await apiFetch<AnalysisResult>(`/assignments/${courseId}/${assignmentId}/result`, {}, jwt);
+    return await apiFetch<AnalysisResult>(
+      `/assignments/${courseId}/${assignmentId}/result`,
+      { cacheTtlMs: API_RESPONSE_CACHE_TTL_MS },
+      jwt
+    );
   } catch { return null; }
 }
 

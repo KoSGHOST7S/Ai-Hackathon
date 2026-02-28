@@ -15,6 +15,7 @@ import { SubmitPage } from "./SubmitPage";
 import { ReviewPage } from "./ReviewPage";
 import { useReview } from "@/hooks/useReview";
 import { shouldCelebrateFinalMilestone } from "@/lib/finalMilestoneCelebration";
+import { shouldShowAnalyzeCta } from "@/lib/analysisViewState";
 import type { SlideDirection } from "@/lib/slideTransitionLogic";
 import { storageGetRaw } from "@/lib/storage";
 import type { CanvasAssignment } from "@/types/analysis";
@@ -71,6 +72,8 @@ export function AssignmentDetailView({
     done: checkedMilestones.size,
     total: totalMilestones,
   }), [checkedMilestones.size, totalMilestones]);
+  const showAnalyzeCta = shouldShowAnalyzeCta(status, loadChecked);
+  const isCheckingExistingAnalysis = status === "idle" && !loadChecked;
   const sceneKey = useMemo(() => {
     if (!subPage) return "root";
     if (subPage.type === "criterion" || subPage.type === "milestone") {
@@ -350,7 +353,13 @@ export function AssignmentDetailView({
           )}
 
           {/* Idle state */}
-          {status === "idle" && (
+          {isCheckingExistingAnalysis && (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+            </div>
+          )}
+
+          {showAnalyzeCta && (
             <Button className="w-full gap-2" onClick={() => analyze(courseId, assignmentId)}>
               <Sparkles className="h-3.5 w-3.5" />
               Analyze with AI
