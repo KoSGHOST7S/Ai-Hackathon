@@ -10,6 +10,21 @@ export function storageGet(key: string): Promise<string | null> {
   return Promise.resolve(localStorage.getItem(key));
 }
 
+export function storageGetRaw(key: string): Promise<unknown | null> {
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(key, (result) => resolve(result[key] ?? null));
+    });
+  }
+  const raw = localStorage.getItem(key);
+  if (raw === null) return Promise.resolve(null);
+  try {
+    return Promise.resolve(JSON.parse(raw));
+  } catch {
+    return Promise.resolve(raw);
+  }
+}
+
 export function storageSet(key: string, value: string): Promise<void> {
   if (typeof chrome !== "undefined" && chrome.storage) {
     return new Promise((resolve) => {

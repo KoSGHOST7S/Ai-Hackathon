@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { streamAnalysis, getAnalysisResult } from "@/lib/api";
-import { storageSet, storageRemove } from "@/lib/storage";
+import { storageRemove } from "@/lib/storage";
 import type { AnalysisResult } from "@/types/analysis";
 
 export type AnalysisStatus = "idle" | "loading" | "done" | "error";
@@ -8,18 +8,17 @@ export type AnalysisStatus = "idle" | "loading" | "done" | "error";
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 function setAnalyzingJob(courseId: string, assignmentId: string, jwt: string) {
-  void storageSet(
-    "analyzing_assignment",
-    JSON.stringify({ courseId, assignmentId, jwt, apiUrl: API_URL })
-  );
+  const payload = { courseId, assignmentId, jwt, apiUrl: API_URL };
+  if (typeof chrome !== "undefined" && chrome.storage) {
+    chrome.storage.local.set({ analyzing_assignment: payload });
+    return;
+  }
+  localStorage.setItem("analyzing_assignment", JSON.stringify(payload));
 }
 
 function clearAnalyzingJob() {
   void storageRemove("analyzing_assignment");
 }
-
-const POLL_INTERVAL_MS = 3_000;
-const POLL_MAX_RETRIES = 60; // ~3 minutes
 
 export function useAnalysis(jwt: string | null) {
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -27,7 +26,6 @@ export function useAnalysis(jwt: string | null) {
   const [error, setError]   = useState<string | null>(null);
   const [step, setStep]     = useState(0);
   const [loadChecked, setLoadChecked] = useState(false);
-  const pollingRef = useRef(false);
 
   async function loadExisting(courseId: string, assignmentId: string) {
     if (!jwt) return;
@@ -36,9 +34,29 @@ export function useAnalysis(jwt: string | null) {
     setLoadChecked(true);
   }
 
+  function restoreInProgress(restoredStep: number) {
+    setStatus("loading");
+    setError(null);
+    setStep(restoredStep);
+    setLoadChecked(true);
+  }
+
+  async function resolveCompletedAnalysis(courseId: string, assignmentId: string) {
+    if (!jwt) return;
+    const existing = await getAnalysisResult(jwt, courseId, assignmentId);
+    if (existing) {
+      setResult(existing);
+      setStatus("done");
+      clearAnalyzingJob();
+      return;
+    }
+    setError("Analysis finished but no result was found. Please try again.");
+    setStatus("error");
+    clearAnalyzingJob();
+  }
+
   async function analyze(courseId: string, assignmentId: string) {
     if (!jwt) return;
-    pollingRef.current = false; // cancel any active poll
     setStatus("loading");
     setStep(0);
     setError(null);
@@ -64,45 +82,7 @@ export function useAnalysis(jwt: string | null) {
     }
   }
 
-  /**
-   * Called when the popup reopens mid-analysis. Shows loading UI and polls
-   * getAnalysisResult every 3 s until the server finishes — does NOT re-POST
-   * the stream endpoint, which would restart or double the work on the server.
-   */
-  async function resumePolling(courseId: string, assignmentId: string) {
-    if (!jwt || pollingRef.current) return;
-    pollingRef.current = true;
-    setStatus("loading");
-    setStep(0);
-    setError(null);
-
-    let retries = 0;
-    while (pollingRef.current && retries < POLL_MAX_RETRIES) {
-      await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL_MS));
-      if (!pollingRef.current) break; // cancelled (e.g. reset() called)
-
-      const existing = await getAnalysisResult(jwt, courseId, assignmentId);
-      if (existing) {
-        setResult(existing);
-        setStatus("done");
-        clearAnalyzingJob();
-        pollingRef.current = false;
-        return;
-      }
-      retries++;
-    }
-
-    if (pollingRef.current) {
-      // Timed out without a result
-      setError("Analysis is taking longer than expected. Please try again.");
-      setStatus("error");
-      clearAnalyzingJob();
-      pollingRef.current = false;
-    }
-  }
-
   function reset() {
-    pollingRef.current = false;
     setResult(null);
     setStatus("idle");
     setError(null);
@@ -111,5 +91,16 @@ export function useAnalysis(jwt: string | null) {
     clearAnalyzingJob();
   }
 
-  return { result, status, error, step, loadChecked, analyze, resumePolling, loadExisting, reset };
+  return {
+    result,
+    status,
+    error,
+    step,
+    loadChecked,
+    analyze,
+    loadExisting,
+    restoreInProgress,
+    resolveCompletedAnalysis,
+    reset,
+  };
 }

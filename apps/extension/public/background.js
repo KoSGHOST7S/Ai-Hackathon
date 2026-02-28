@@ -26,9 +26,22 @@ function clearBadge() {
   chrome.action.setBadgeText({ text: "" });
 }
 
+function parseAnalyzingJob(raw) {
+  if (!raw) return null;
+  if (typeof raw === "object") return raw;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 async function pollOnce() {
   const data = await chrome.storage.local.get("analyzing_assignment");
-  const job = data.analyzing_assignment;
+  const job = parseAnalyzingJob(data.analyzing_assignment);
   if (!job) {
     // Job was cleared by the popup (it finished while popup was open)
     chrome.alarms.clear(ALARM_NAME);

@@ -13,6 +13,7 @@ export interface AssignmentDetailSession {
   subPage: SubPage | null;
   checkedMilestones: number[];
   wasAnalyzing?: boolean;
+  analyzingStep?: number;
 }
 
 export interface UiSessionState {
@@ -87,6 +88,10 @@ function sanitize(input: unknown): UiSessionState {
         checkedMilestones: checked,
         subPage,
         wasAnalyzing: candidate.wasAnalyzing === true,
+        analyzingStep:
+          typeof candidate.analyzingStep === "number" && candidate.analyzingStep >= 0
+            ? candidate.analyzingStep
+            : 0,
       };
     }
   }

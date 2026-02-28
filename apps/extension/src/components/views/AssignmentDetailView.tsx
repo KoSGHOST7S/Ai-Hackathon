@@ -12,6 +12,7 @@ import { ChatPage } from "./ChatPage";
 import { SubmitPage } from "./SubmitPage";
 import { ReviewPage } from "./ReviewPage";
 import { useReview } from "@/hooks/useReview";
+import { storageGet } from "@/lib/storage";
 import type { CanvasAssignment } from "@/types/analysis";
 import type { AssignmentDetailSession } from "@/lib/uiSession";
 
@@ -46,7 +47,7 @@ export function AssignmentDetailView({
   onSessionChange,
   autoAnalyze,
 }: Props) {
-  const { result, status, error, step, loadChecked, analyze, resumePolling, loadExisting } = useAnalysis(jwt);
+  const { result, status, error, step, loadChecked, analyze, loadExisting, restoreInProgress, resolveCompletedAnalysis } = useAnalysis(jwt);
   const { result: reviewResult, status: reviewStatus, error: reviewError, step: reviewStep, submitForReview, loadExisting: loadExistingReview, reset: reviewReset } = useReview(jwt);
   const initialSubPage = initialSession?.subPage ?? null;
   const { subPage, setSubPage, openDescription, openCriterion, openMilestone, openChat, openSubmit, openReview, close } = useSubPage(initialSubPage);
@@ -56,6 +57,7 @@ export function AssignmentDetailView({
   const hydratedRef = useRef(false);
   const shouldAutoOpenReviewRef = useRef(false);
   const wasAnalyzingRef = useRef(initialSession?.wasAnalyzing ?? false);
+  const initialAnalyzingStepRef = useRef(initialSession?.analyzingStep ?? 0);
   const selectedMilestoneIndex = subPage?.type === "milestone" ? subPage.index : -1;
   const totalMilestones = result?.milestones.milestones.length ?? 0;
 
@@ -74,6 +76,10 @@ export function AssignmentDetailView({
   }, [initialSession, setSubPage]);
 
   useEffect(() => {
+    if (wasAnalyzingRef.current) {
+      restoreInProgress(initialAnalyzingStepRef.current);
+      return;
+    }
     loadExisting(courseId, assignmentId);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, assignmentId]);
@@ -82,13 +88,47 @@ export function AssignmentDetailView({
     if (!loadChecked || status !== "idle") return;
     if (autoAnalyze) {
       analyze(courseId, assignmentId);
-    } else if (wasAnalyzingRef.current) {
-      // Popup reopened mid-analysis — poll for the result without re-POSTing
-      wasAnalyzingRef.current = false;
-      resumePolling(courseId, assignmentId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAnalyze, loadChecked, status]);
+
+  useEffect(() => {
+    if (!wasAnalyzingRef.current || status !== "loading") return;
+    let cancelled = false;
+
+    const checkJobState = async () => {
+      const rawJob = await storageGet("analyzing_assignment");
+      if (cancelled) return;
+
+      let job: { courseId?: unknown; assignmentId?: unknown } | null = null;
+      if (typeof rawJob === "string") {
+        try {
+          job = JSON.parse(rawJob) as { courseId?: unknown; assignmentId?: unknown };
+        } catch {
+          job = null;
+        }
+      } else if (rawJob && typeof rawJob === "object") {
+        job = rawJob as { courseId?: unknown; assignmentId?: unknown };
+      }
+
+      const stillRunningForThisAssignment =
+        !!job &&
+        String(job.courseId ?? "") === String(courseId) &&
+        String(job.assignmentId ?? "") === String(assignmentId);
+
+      if (stillRunningForThisAssignment) return;
+      wasAnalyzingRef.current = false;
+      await resolveCompletedAnalysis(courseId, assignmentId);
+    };
+
+    void checkJobState();
+    const timer = window.setInterval(() => { void checkJobState(); }, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, courseId, assignmentId]);
 
   useEffect(() => {
     if (status === "done" && result) {
@@ -118,8 +158,9 @@ export function AssignmentDetailView({
       subPage: subPage as SubPage | null,
       checkedMilestones: Array.from(checkedMilestones).sort((a, b) => a - b),
       wasAnalyzing: status === "loading",
+      analyzingStep: status === "loading" ? step : 0,
     });
-  }, [subPage, checkedMilestones, status, onSessionChange]);
+  }, [subPage, checkedMilestones, status, step, onSessionChange]);
 
   // Sub-page routing
   if (subPage) {
