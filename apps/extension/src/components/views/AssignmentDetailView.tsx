@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Sparkles, CheckCircle2, Circle, ChevronRight, Loader2, MessageSquare } from "lucide-react";
+import { ArrowLeft, Sparkles, CheckCircle2, Circle, ChevronRight, Loader2, MessageSquare, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,9 @@ import { DescriptionPage } from "./DescriptionPage";
 import { CriterionPage } from "./CriterionPage";
 import { MilestonePage } from "./MilestonePage";
 import { ChatPage } from "./ChatPage";
+import { SubmitPage } from "./SubmitPage";
+import { ReviewPage } from "./ReviewPage";
+import { useReview } from "@/hooks/useReview";
 import type { CanvasAssignment } from "@/types/analysis";
 
 const STEPS = ["Generating rubric…", "Validating rubric…", "Building milestones…"];
@@ -24,7 +27,8 @@ interface Props {
 
 export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, onBack, onAnalysisDone }: Props) {
   const { result, status, error, step, analyze, loadExisting } = useAnalysis(jwt);
-  const { subPage, openDescription, openCriterion, openMilestone, openChat, close } = useSubPage();
+  const { result: reviewResult, status: reviewStatus, error: reviewError, step: reviewStep, submitForReview, loadExisting: loadExistingReview, reset: reviewReset } = useReview(jwt);
+  const { subPage, openDescription, openCriterion, openMilestone, openChat, openSubmit, openReview, close } = useSubPage();
   const [checkedMilestones, setCheckedMilestones] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -38,6 +42,16 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, result]);
+
+  useEffect(() => {
+    loadExistingReview(courseId, assignmentId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courseId, assignmentId]);
+
+  useEffect(() => {
+    if (reviewStatus === "done") openReview();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reviewStatus]);
 
   const toggleMilestone = (i: number) =>
     setCheckedMilestones((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
@@ -72,6 +86,24 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
           onBack={close}
         />
       );
+    }
+    if (subPage.type === "submit") {
+      return (
+        <SubmitPage
+          assignmentName={assignment.name}
+          courseId={courseId}
+          assignmentId={assignmentId}
+          jwt={jwt}
+          reviewStep={reviewStep}
+          reviewStatus={reviewStatus}
+          reviewError={reviewError}
+          onSubmit={(body) => { submitForReview(courseId, assignmentId, body); }}
+          onBack={close}
+        />
+      );
+    }
+    if (subPage.type === "review" && reviewResult) {
+      return <ReviewPage result={reviewResult} onResubmit={() => { reviewReset(); openSubmit(); }} onBack={close} />;
     }
   }
 
@@ -221,6 +253,25 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
                 ))}
               </div>
             </div>
+
+            {/* Submit for Review entry point */}
+            <button
+              onClick={reviewResult ? openReview : openSubmit}
+              className="w-full flex items-center gap-3 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors"
+            >
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <ClipboardCheck className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-xs font-medium text-foreground">
+                  {reviewResult ? "View Review" : "Submit for Review"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {reviewResult ? `Score: ${reviewResult.totalScore}/${reviewResult.totalPossible}` : "Upload your work for AI scoring"}
+                </p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
 
             {/* Chat entry point */}
             <button
