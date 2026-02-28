@@ -1,4 +1,4 @@
-// Extension UI brand colors
+// Extension UI brand colors (the actual app)
 export const EXT = {
   primary: "#4CA87A",
   primaryFg: "#FFFFFF",
@@ -16,14 +16,17 @@ export const EXT = {
   emerald: "#10B981",
 };
 
-// Video (cinematic) background colors
+// Video (cinematic) — light editorial theme
 export const VID = {
-  bg: "#070D1B",
-  bgMid: "#0C1624",
-  glow: "rgba(76, 168, 122, 0.22)",
-  glowSoft: "rgba(76, 168, 122, 0.10)",
-  white: "#FFFFFF",
-  textDim: "rgba(255,255,255,0.65)",
-  textDimmer: "rgba(255,255,255,0.35)",
+  bg: "#FAF9F6",
+  bgWarm: "#F3EDE6",
+  surface: "#FFFFFF",
+  text: "#1A1A1A",
+  textMuted: "#7A776F",
+  textDim: "#B5B0A8",
   accent: "#4CA87A",
+  accentSoft: "rgba(76, 168, 122, 0.08)",
+  accentMid: "rgba(76, 168, 122, 0.18)",
+  blush: "rgba(244, 136, 90, 0.10)",
+  line: "#E8E3DC",
 };

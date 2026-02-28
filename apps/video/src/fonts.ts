@@ -1,17 +1,22 @@
-import { loadFont as loadDMSans } from "@remotion/google-fonts/DMSans";
-import { loadFont as loadDMSerif } from "@remotion/google-fonts/DMSerifDisplay";
+import { loadFont as loadCormorant } from "@remotion/google-fonts/Cormorant";
+import { loadFont as loadOutfit } from "@remotion/google-fonts/Outfit";
 
-const { fontFamily: dmSansFamily } = loadDMSans("normal", {
+const { fontFamily: cormorantFamily } = loadCormorant("normal", {
+  weights: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+});
+
+loadCormorant("italic", {
+  weights: ["400", "500"],
+  subsets: ["latin"],
+});
+
+const { fontFamily: outfitFamily } = loadOutfit("normal", {
   weights: ["300", "400", "500", "600", "700"],
   subsets: ["latin"],
 });
 
-const { fontFamily: dmSerifFamily } = loadDMSerif("normal", {
-  weights: ["400"],
-  subsets: ["latin"],
-});
-
 export const FONT = {
-  sans: dmSansFamily,
-  serif: dmSerifFamily,
+  serif: cormorantFamily,
+  sans: outfitFamily,
 };

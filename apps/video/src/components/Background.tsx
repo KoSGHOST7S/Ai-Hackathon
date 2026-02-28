@@ -1,82 +1,62 @@
 import React from "react";
-import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { VID } from "../colors";
 
-const NUM_PARTICLES = 28;
-
-const PARTICLES = Array.from({ length: NUM_PARTICLES }, (_, i) => ({
-  id: i,
-  x: (((i * 137.5) % 100) / 100) * 1920,
-  y: 1080 + ((i * 73.1) % 300),
-  size: 2 + ((i * 31) % 4),
-  speed: 0.25 + ((i * 0.17) % 0.35),
-  opacity: 0.12 + ((i * 0.05) % 0.15),
-}));
-
-export const Background: React.FC<{ glowX?: number; glowY?: number }> = ({
-  glowX = 960,
-  glowY = 540,
-}) => {
+export const Background: React.FC<{
+  glowX?: number;
+  glowY?: number;
+}> = ({ glowX = 900, glowY = 400 }) => {
   const frame = useCurrentFrame();
-  const { durationInFrames } = useVideoConfig();
+
+  const blob1X = glowX + Math.sin(frame * 0.008) * 40;
+  const blob1Y = glowY + Math.cos(frame * 0.006) * 30;
+  const blob2X = 1920 - glowX + Math.cos(frame * 0.007) * 35;
+  const blob2Y = 1080 - glowY + Math.sin(frame * 0.009) * 25;
 
   return (
-    <AbsoluteFill style={{ background: `linear-gradient(160deg, ${VID.bgMid} 0%, ${VID.bg} 60%)` }}>
-      {/* Subtle radial vignette */}
+    <AbsoluteFill
+      style={{
+        background: `linear-gradient(155deg, ${VID.bg} 0%, ${VID.bgWarm} 50%, ${VID.bg} 100%)`,
+      }}
+    >
+      {/* Soft mint blob */}
       <div
         style={{
           position: "absolute",
-          inset: 0,
-          background:
-            "radial-gradient(ellipse 80% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.45) 100%)",
-        }}
-      />
-
-      {/* Ambient glow behind extension */}
-      <div
-        style={{
-          position: "absolute",
-          width: 700,
-          height: 700,
+          width: 800,
+          height: 800,
           borderRadius: "50%",
-          background: `radial-gradient(circle, ${VID.glow} 0%, ${VID.glowSoft} 45%, transparent 70%)`,
-          left: glowX - 350,
-          top: glowY - 350,
-          filter: "blur(30px)",
+          background: `radial-gradient(circle, ${VID.accentMid} 0%, ${VID.accentSoft} 40%, transparent 70%)`,
+          left: blob1X - 400,
+          top: blob1Y - 400,
+          filter: "blur(80px)",
           pointerEvents: "none",
         }}
       />
 
-      {/* Floating particles */}
-      {PARTICLES.map((p) => {
-        const drift = (frame * p.speed) % (1080 + 300);
-        const py = p.y - drift;
-        const wrappedY = py > -10 ? py : py + 1380;
-        const xWave = Math.sin(frame * 0.015 + p.id * 0.8) * 14;
-        return (
-          <div
-            key={p.id}
-            style={{
-              position: "absolute",
-              left: p.x + xWave,
-              top: wrappedY,
-              width: p.size,
-              height: p.size,
-              borderRadius: "50%",
-              background: VID.accent,
-              opacity: p.opacity,
-            }}
-          />
-        );
-      })}
+      {/* Warm blush blob */}
+      <div
+        style={{
+          position: "absolute",
+          width: 600,
+          height: 600,
+          borderRadius: "50%",
+          background: `radial-gradient(circle, ${VID.blush} 0%, rgba(244, 136, 90, 0.03) 50%, transparent 70%)`,
+          left: blob2X - 300,
+          top: blob2Y - 300,
+          filter: "blur(60px)",
+          pointerEvents: "none",
+        }}
+      />
 
-      {/* Subtle horizontal scan line */}
+      {/* Subtle dot grid */}
       <div
         style={{
           position: "absolute",
           inset: 0,
-          background:
-            "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(255,255,255,0.008) 3px, rgba(255,255,255,0.008) 4px)",
+          backgroundImage: `radial-gradient(circle, ${VID.line} 0.5px, transparent 0.5px)`,
+          backgroundSize: "32px 32px",
+          opacity: 0.3,
           pointerEvents: "none",
         }}
       />
