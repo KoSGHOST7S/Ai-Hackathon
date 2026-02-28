@@ -1,5 +1,5 @@
 // apps/extension/src/App.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { BottomNav, type Tab } from "@/components/BottomNav";
 import { TodayView } from "@/components/views/TodayView";
 import { PlanView } from "@/components/views/PlanView";
@@ -7,6 +7,7 @@ import { MeView } from "@/components/views/MeView";
 import { SetupView } from "@/components/views/SetupView";
 import { useCanvasUrl } from "@/hooks/useCanvasUrl";
 import { useAuth } from "@/hooks/useAuth";
+import { useCanvasProfile } from "@/hooks/useCanvasProfile";
 import { apiFetch } from "@/lib/api";
 import type { MeResponse } from "shared";
 
@@ -21,10 +22,16 @@ type OnboardingStep = "account" | "canvas" | "done";
 export default function App() {
   const [tab, setTab] = useState<Tab>("today");
   const { jwt, user, isLoading, logout, signup, login } = useAuth();
+  const { canvasName, canvasAvatarUrl, isLoaded: profileLoaded, setProfile, clearProfile } = useCanvasProfile();
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>("account");
   const [meData, setMeData] = useState<MeResponse | null>(null);
   const [meCheckDone, setMeCheckDone] = useState(false);
   const { assignmentInfo } = useCanvasUrl();
+
+  const applyMe = useCallback((me: MeResponse) => {
+    setMeData(me);
+    setProfile({ canvasName: me.canvasName, canvasAvatarUrl: me.canvasAvatarUrl });
+  }, [setProfile]);
 
   // Once we have a JWT, check if canvas is already configured
   useEffect(() => {
@@ -35,12 +42,12 @@ export default function App() {
     setMeCheckDone(false);
     apiFetch<MeResponse>("/auth/me", {}, jwt)
       .then((me) => {
-        setMeData(me);
+        applyMe(me);
         setOnboardingStep(me.hasCanvasConfig ? "done" : "canvas");
       })
       .catch(() => setOnboardingStep("canvas"))
       .finally(() => setMeCheckDone(true));
-  }, [jwt]);
+  }, [jwt, applyMe]);
 
   if (isLoading || !meCheckDone) {
     return (
@@ -64,7 +71,7 @@ export default function App() {
             if (jwt) {
               try {
                 const me = await apiFetch<MeResponse>("/auth/me", {}, jwt);
-                setMeData(me);
+                applyMe(me);
               } catch {
                 // non-fatal — dashboard still works without the profile
               }
@@ -78,7 +85,9 @@ export default function App() {
     );
   }
 
-  const displayName = meData?.canvasName ?? null;
+  // Use cached profile values — available immediately from storage, no API wait
+  const displayName = canvasName ?? meData?.canvasName ?? null;
+  const avatarUrl = canvasAvatarUrl ?? meData?.canvasAvatarUrl ?? null;
   const initials = displayName
     ? displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : (user?.email?.slice(0, 2).toUpperCase() ?? "??");
@@ -95,9 +104,9 @@ export default function App() {
             <span className="text-sm font-medium text-foreground">{VIEW_TITLE[tab]}</span>
           </div>
           <div className="h-7 w-7 rounded-full bg-primary/12 border border-primary/20 flex items-center justify-center overflow-hidden">
-            {meData?.canvasAvatarUrl ? (
+            {avatarUrl ? (
               <img
-                src={meData.canvasAvatarUrl}
+                src={avatarUrl}
                 alt={initials}
                 className="h-full w-full object-cover"
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
@@ -122,7 +131,17 @@ export default function App() {
       <main className="flex-1 min-h-0 p-4 overflow-hidden">
         {tab === "today" && <TodayView displayName={displayName} />}
         {tab === "plan" && <PlanView />}
-        {tab === "me" && <MeView user={user} meData={meData} onLogout={logout} />}
+        {tab === "me" && (
+          <MeView
+            user={user}
+            meData={meData}
+            cachedAvatarUrl={avatarUrl}
+            onLogout={async () => {
+              await clearProfile();
+              logout();
+            }}
+          />
+        )}
       </main>
 
       <BottomNav active={tab} onChange={setTab} />

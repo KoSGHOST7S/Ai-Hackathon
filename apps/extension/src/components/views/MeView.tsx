@@ -16,10 +16,11 @@ const PREFS = [
 interface Props {
   user: { id: string; email: string } | null;
   meData: MeResponse | null;
+  cachedAvatarUrl?: string | null;
   onLogout: () => void;
 }
 
-export function MeView({ user, meData, onLogout }: Props) {
+export function MeView({ user, meData, cachedAvatarUrl, onLogout }: Props) {
   const [prefs, setPrefs] = useState({
     notifications: true,
     digest: false,
@@ -37,7 +38,7 @@ export function MeView({ user, meData, onLogout }: Props) {
   return (
     <div className="flex flex-col gap-4 h-full">
       <div className="flex items-center gap-3.5">
-        <Avatar initials={initials} src={meData?.canvasAvatarUrl} size="lg" />
+        <Avatar initials={initials} src={cachedAvatarUrl ?? meData?.canvasAvatarUrl} size="lg" />
         <div className="flex-1 min-w-0">
           {displayName && (
             <p className="font-semibold text-foreground text-sm leading-tight">{displayName}</p>

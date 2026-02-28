@@ -1,37 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/lib/api";
+import { storageGet, storageSet, storageRemove } from "@/lib/storage";
 import type { AuthResponse, LoginRequest, SignupRequest } from "shared";
 
 const STORAGE_KEY = "assignmint_jwt";
-
-function storageGet(key: string): Promise<string | null> {
-  if (typeof chrome !== "undefined" && chrome.storage) {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(key, (result) => resolve((result[key] as string | undefined) ?? null));
-    });
-  }
-  return Promise.resolve(localStorage.getItem(key));
-}
-
-function storageSet(key: string, value: string): Promise<void> {
-  if (typeof chrome !== "undefined" && chrome.storage) {
-    return new Promise((resolve) => {
-      chrome.storage.local.set({ [key]: value }, resolve);
-    });
-  }
-  localStorage.setItem(key, value);
-  return Promise.resolve();
-}
-
-function storageRemove(key: string): Promise<void> {
-  if (typeof chrome !== "undefined" && chrome.storage) {
-    return new Promise((resolve) => {
-      chrome.storage.local.remove(key, resolve);
-    });
-  }
-  localStorage.removeItem(key);
-  return Promise.resolve();
-}
 
 export interface AuthState {
   jwt: string | null;
