@@ -13,10 +13,14 @@ export function OnboardingWelcome({ isActive, onGetStarted, onSignIn }: Props) {
     <div className="flex flex-col items-center justify-center h-full px-8 text-center select-none">
       {/* Logo mark */}
       <div
-        className="w-20 h-20 rounded-3xl bg-primary flex items-center justify-center mb-6 shadow-lg animate-scale-in"
-        style={{ animationPlayState: play, animationDelay: "0ms" }}
+        className="w-20 h-20 rounded-3xl flex items-center justify-center mb-6 shadow-lg animate-scale-in p-3.5"
+        style={{
+          animationPlayState: play,
+          animationDelay: "0ms",
+          background: "linear-gradient(145deg, #5dbf8c 0%, #4CA87A 55%, #3d9468 100%)",
+        }}
       >
-        <span className="text-4xl" role="img" aria-label="assignmint">🌱</span>
+        <img src="/mint-clean.svg" alt="assignmint" className="w-full h-full object-contain" />
       </div>
 
       {/* Brand name */}

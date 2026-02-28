@@ -68,10 +68,14 @@ export function OnboardingStep1({
 
       {/* Icon */}
       <div
-        className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center mb-4 animate-scale-in"
-        style={{ animationPlayState: play, animationDelay: "40ms" }}
+        className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 animate-scale-in p-2.5"
+        style={{
+          animationPlayState: play,
+          animationDelay: "40ms",
+          background: "linear-gradient(145deg, #5dbf8c 0%, #4CA87A 55%, #3d9468 100%)",
+        }}
       >
-        <span className="text-3xl">🌱</span>
+        <img src="/mint-clean.svg" alt="assignmint" className="w-full h-full object-contain" />
       </div>
 
       {/* Title */}
