@@ -102,8 +102,12 @@ router.put("/canvas-config", requireAuth, async (req: AuthRequest, res: Response
         headers: { Authorization: `Bearer ${canvasApiKey}` },
       });
       if (!profileRes.ok) {
-        if (profileRes.status === 401 || profileRes.status === 403) {
+        if (profileRes.status === 401) {
           res.status(400).json({ error: "Invalid Canvas API key — please check your token and try again" });
+          return;
+        }
+        if (profileRes.status === 403) {
+          res.status(400).json({ error: "Canvas API key lacks required permissions — ensure it has read access to your profile" });
           return;
         }
         res.status(400).json({ error: `Could not reach Canvas (HTTP ${profileRes.status}) — check your Canvas URL` });
