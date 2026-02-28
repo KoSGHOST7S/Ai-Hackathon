@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Loader2, Bot, User } from "lucide-react";
 import { SubPageHeader } from "./SubPageHeader";
 import { streamChat } from "@/lib/api";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface ChatMsg { role: "user" | "assistant"; content: string; }
 
@@ -66,7 +68,15 @@ export function ChatPage({ courseId, assignmentId, assignmentName, jwt, onBack }
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-foreground"
             }`}>
-              {m.content}
+              {m.role === "assistant" ? (
+                <div className="chat-prose">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {m.content}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                m.content
+              )}
             </div>
             {m.role === "user" && (
               <div className="h-5 w-5 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
