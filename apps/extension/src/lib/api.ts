@@ -108,3 +108,43 @@ export async function* streamAnalysis(
     }
   }
 }
+
+export type ChatStreamEvent =
+  | { type: "done"; content: string }
+  | { type: "error"; error: string };
+
+export async function* streamChat(
+  jwt: string, courseId: string, assignmentId: string,
+  messages: Array<{ role: string; content: string }>
+): AsyncGenerator<ChatStreamEvent> {
+  const response = await fetch(`${BASE_URL}/assignments/${courseId}/${assignmentId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${jwt}` },
+    body: JSON.stringify({ messages }),
+  });
+  if (!response.ok || !response.body) {
+    yield { type: "error", error: `HTTP ${response.status}` }; return;
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+    for (const raw of events) {
+      if (!raw.trim()) continue;
+      const lines = raw.split("\n");
+      const eventType = lines.find((l) => l.startsWith("event:"))?.slice(6).trim();
+      const dataStr = lines.find((l) => l.startsWith("data:"))?.slice(5).trim();
+      if (!dataStr) continue;
+      try {
+        const data = JSON.parse(dataStr);
+        if (eventType === "done") yield { type: "done", content: data.content };
+        else if (eventType === "error") yield { type: "error", error: data.error };
+      } catch { /* skip */ }
+    }
+  }
+}
