@@ -46,7 +46,7 @@ export function AssignmentDetailView({
   onSessionChange,
   autoAnalyze,
 }: Props) {
-  const { result, status, error, step, loadChecked, analyze, loadExisting } = useAnalysis(jwt);
+  const { result, status, error, step, loadChecked, analyze, resumePolling, loadExisting } = useAnalysis(jwt);
   const { result: reviewResult, status: reviewStatus, error: reviewError, step: reviewStep, submitForReview, loadExisting: loadExistingReview, reset: reviewReset } = useReview(jwt);
   const initialSubPage = initialSession?.subPage ?? null;
   const { subPage, setSubPage, openDescription, openCriterion, openMilestone, openChat, openSubmit, openReview, close } = useSubPage(initialSubPage);
@@ -79,8 +79,13 @@ export function AssignmentDetailView({
   }, [courseId, assignmentId]);
 
   useEffect(() => {
-    if ((autoAnalyze || wasAnalyzingRef.current) && loadChecked && status === "idle") {
+    if (!loadChecked || status !== "idle") return;
+    if (autoAnalyze) {
       analyze(courseId, assignmentId);
+    } else if (wasAnalyzingRef.current) {
+      // Popup reopened mid-analysis — poll for the result without re-POSTing
+      wasAnalyzingRef.current = false;
+      resumePolling(courseId, assignmentId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAnalyze, loadChecked, status]);
