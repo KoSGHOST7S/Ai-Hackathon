@@ -54,6 +54,7 @@ class Milestone(BaseModel):
     description: str
     estimatedHours: float
     deliverable: str
+    tasks: list[str] = []
 
 
 class Milestones(BaseModel):
