@@ -58,7 +58,7 @@ router.get("/courses/:courseId/assignments", requireAuth, async (req: AuthReques
   } catch (err) {
     console.error("canvas assignments error:", err);
     res.status(502).json({ error: "Failed to fetch from Canvas API" });
-  }
+  }t
 });
 
 export default router;

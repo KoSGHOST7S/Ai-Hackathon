@@ -1,0 +1,9 @@
+[project]
+name = "agents"
+version = "0.1.0"
+description = "IBM watsonx multi-agent workflow service for Assignmint"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "ibm-watsonx-ai>=1.5.3",
+]
