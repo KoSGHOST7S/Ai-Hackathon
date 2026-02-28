@@ -1,9 +1,14 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Sparkles, CheckCircle2, Circle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ArrowLeft, Sparkles, CheckCircle2, Circle, ChevronRight, Loader2, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAnalysis } from "@/hooks/useAnalysis";
+import { useSubPage } from "@/hooks/useSubPage";
+import { DescriptionPage } from "./DescriptionPage";
+import { CriterionPage } from "./CriterionPage";
+import { MilestonePage } from "./MilestonePage";
+import { ChatPage } from "./ChatPage";
 import type { CanvasAssignment } from "@/types/analysis";
 
 const STEPS = ["Generating rubric…", "Validating rubric…", "Building milestones…"];
@@ -19,7 +24,7 @@ interface Props {
 
 export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, onBack, onAnalysisDone }: Props) {
   const { result, status, error, step, analyze, loadExisting } = useAnalysis(jwt);
-  const [expandedCriteria, setExpandedCriteria] = useState<Set<number>>(new Set([0]));
+  const { subPage, openDescription, openCriterion, openMilestone, openChat, close } = useSubPage();
   const [checkedMilestones, setCheckedMilestones] = useState<Set<number>>(new Set());
 
   useEffect(() => {
@@ -34,10 +39,44 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, result]);
 
-  const toggleCriterion = (i: number) =>
-    setExpandedCriteria((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
   const toggleMilestone = (i: number) =>
     setCheckedMilestones((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
+
+  // Sub-page routing
+  if (subPage) {
+    if (subPage.type === "description") {
+      return <DescriptionPage assignment={assignment} onBack={close} />;
+    }
+    if (subPage.type === "criterion" && result) {
+      const c = result.rubric.criteria[subPage.index];
+      if (c) return <CriterionPage criterion={c} onBack={close} />;
+    }
+    if (subPage.type === "milestone" && result) {
+      const m = result.milestones.milestones[subPage.index];
+      if (m) return (
+        <MilestonePage
+          milestone={m}
+          isChecked={checkedMilestones.has(subPage.index)}
+          onToggle={() => toggleMilestone(subPage.index)}
+          onBack={close}
+        />
+      );
+    }
+    if (subPage.type === "chat") {
+      return (
+        <ChatPage
+          courseId={courseId}
+          assignmentId={assignmentId}
+          assignmentName={assignment.name}
+          jwt={jwt}
+          onBack={close}
+        />
+      );
+    }
+  }
+
+  const descriptionText = (assignment.description ?? "")
+    .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -47,46 +86,57 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
           <ArrowLeft className="h-4 w-4" />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground truncate">{assignment.name}</p>
           <p className="text-xs text-muted-foreground">{assignment.courseName}</p>
         </div>
         {result && <Sparkles className="h-4 w-4 text-primary shrink-0" />}
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto py-3 flex flex-col gap-4">
+      <div className="flex-1 overflow-y-auto py-3 flex flex-col gap-3">
 
-        {status === "idle" && (
-          <div className="flex flex-col items-center justify-center flex-1 gap-4 text-center px-4">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <p className="font-semibold text-foreground mb-1">Analyze this assignment</p>
-              <p className="text-xs text-muted-foreground">
-                AI will generate a grading rubric and a step-by-step milestone plan.
-              </p>
-            </div>
+        {/* Assignment header */}
+        <div>
+          <h2 className="text-sm font-semibold text-foreground leading-snug">{assignment.name}</h2>
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             {assignment.points_possible > 0 && (
-              <Badge variant="muted">{assignment.points_possible} pts possible</Badge>
+              <Badge variant="muted">{assignment.points_possible} pts</Badge>
             )}
-            {assignment.description && (
-              <div className="w-full text-left bg-muted/40 rounded-lg p-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Assignment</p>
-                <p className="text-xs text-foreground/80 leading-relaxed line-clamp-5">
-                  {(assignment.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}
-                </p>
-              </div>
+            {assignment.due_at && (
+              <Badge variant="muted">
+                Due {new Date(assignment.due_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </Badge>
             )}
-            <Button className="w-full gap-2" onClick={() => analyze(courseId, assignmentId)}>
-              <Sparkles className="h-3.5 w-3.5" />
-              Analyze with AI
-            </Button>
+            {assignment.submission_types?.length > 0 && (
+              <Badge variant="muted">{assignment.submission_types[0]}</Badge>
+            )}
           </div>
+        </div>
+
+        {/* Description row */}
+        {descriptionText && (
+          <button
+            onClick={openDescription}
+            className="w-full text-left bg-muted/40 rounded-lg p-3 flex items-start gap-2 hover:bg-muted/60 transition-colors"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Description</p>
+              <p className="text-xs text-foreground/70 leading-relaxed line-clamp-2">{descriptionText}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+          </button>
         )}
 
+        {/* Idle state */}
+        {status === "idle" && (
+          <Button className="w-full gap-2" onClick={() => analyze(courseId, assignmentId)}>
+            <Sparkles className="h-3.5 w-3.5" />
+            Analyze with AI
+          </Button>
+        )}
+
+        {/* Loading state */}
         {status === "loading" && (
-          <div className="flex flex-col items-center justify-center flex-1 gap-5 px-4">
+          <div className="flex flex-col items-center justify-center flex-1 gap-5 px-2">
             <Loader2 className="h-8 w-8 text-primary animate-spin" />
             <div className="w-full flex flex-col gap-2">
               {STEPS.map((label, i) => (
@@ -107,69 +157,53 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
           </div>
         )}
 
+        {/* Error state */}
         {status === "error" && (
-          <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+          <div className="flex flex-col items-center gap-3 px-4 py-6 text-center">
             <p className="text-sm text-destructive font-medium">Analysis failed</p>
             <p className="text-xs text-muted-foreground">{error}</p>
             <Button variant="outline" onClick={() => analyze(courseId, assignmentId)}>Try again</Button>
           </div>
         )}
 
+        {/* Result state */}
         {status === "done" && result && (
           <>
+            {/* Rubric section */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Rubric</p>
-                <span className="text-[10px] text-muted-foreground tabular-nums">{result.rubric.totalPoints} pts total</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Rubric</p>
+                <span className="text-[10px] text-muted-foreground tabular-nums">{result.rubric.totalPoints} pts</span>
               </div>
-              <div className="flex flex-col gap-1.5">
+              <div className="flex flex-col gap-1">
                 {result.rubric.criteria.map((c, i) => (
                   <Card key={i} className="shadow-none">
                     <button
-                      className="w-full p-3 text-left flex items-center justify-between gap-2"
-                      onClick={() => toggleCriterion(i)}
+                      className="w-full p-2.5 text-left flex items-center gap-2 hover:bg-muted/40 transition-colors"
+                      onClick={() => openCriterion(i)}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-sm font-medium text-foreground truncate">{c.name}</span>
-                        <Badge variant="muted" className="shrink-0">{c.weight} pts</Badge>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground leading-snug">{c.name}</p>
                       </div>
-                      {expandedCriteria.has(i)
-                        ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                      <Badge variant="muted" className="shrink-0 text-[10px]">{c.weight}</Badge>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     </button>
-                    {expandedCriteria.has(i) && (
-                      <div className="px-3 pb-3 flex flex-col gap-1.5 border-t border-border pt-2">
-                        <p className="text-xs text-muted-foreground">{c.description}</p>
-                        {c.levels.map((l, j) => {
-                          const levelColor =
-                            j === 0 ? "text-emerald-600 dark:text-emerald-400" :
-                            j === 1 ? "text-blue-600 dark:text-blue-400" :
-                            j === 2 ? "text-amber-600 dark:text-amber-400" :
-                                      "text-rose-600 dark:text-rose-400";
-                          return (
-                            <div key={j} className="flex items-center justify-between text-xs py-0.5">
-                              <span className={`font-medium ${levelColor}`}>{l.label}</span>
-                              <span className="text-muted-foreground tabular-nums">{l.points} pts</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </Card>
                 ))}
               </div>
             </div>
 
+            {/* Milestones section */}
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-2">Milestones</p>
-              <div className="flex flex-col gap-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1.5">Milestones</p>
+              <div className="flex flex-col gap-1">
                 {result.milestones.milestones.map((m, i) => (
                   <Card key={i} className="shadow-none">
                     <button
-                      className="w-full p-3 text-left flex items-start gap-3"
-                      onClick={() => toggleMilestone(i)}
+                      className="w-full p-2.5 text-left flex items-center gap-2.5 hover:bg-muted/40 transition-colors"
+                      onClick={() => openMilestone(i)}
                     >
-                      <div className="shrink-0 mt-0.5">
+                      <div className="shrink-0">
                         {checkedMilestones.has(i) ? (
                           <CheckCircle2 className="h-4 w-4 text-primary" />
                         ) : (
@@ -178,21 +212,34 @@ export function AssignmentDetailView({ assignment, courseId, assignmentId, jwt, 
                           </div>
                         )}
                       </div>
-                      <div className="flex-1 min-w-0 text-left">
-                        <p className={`text-sm font-medium leading-snug ${checkedMilestones.has(i) ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                          {m.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{m.description}</p>
-                        <p className="text-[10px] text-muted-foreground/60 mt-1">~{m.estimatedHours}h · {m.deliverable}</p>
-                      </div>
+                      <p className={`flex-1 text-xs font-medium leading-snug min-w-0 ${checkedMilestones.has(i) ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        {m.title}
+                      </p>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     </button>
                   </Card>
                 ))}
               </div>
             </div>
 
-            <Button variant="outline" className="w-full gap-2" onClick={() => analyze(courseId, assignmentId)}>
-              <Sparkles className="h-3.5 w-3.5" />
+            {/* Chat entry point */}
+            <button
+              onClick={openChat}
+              className="w-full flex items-center gap-3 bg-muted/40 rounded-lg p-3 hover:bg-muted/60 transition-colors"
+            >
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <MessageSquare className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-xs font-medium text-foreground">Ask a question</p>
+                <p className="text-[10px] text-muted-foreground">Chat with AI about this assignment</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+
+            {/* Re-analyze */}
+            <Button variant="outline" size="sm" className="w-full gap-2 text-xs" onClick={() => analyze(courseId, assignmentId)}>
+              <Sparkles className="h-3 w-3" />
               Re-analyze
             </Button>
           </>
