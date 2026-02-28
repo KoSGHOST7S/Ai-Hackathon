@@ -14,7 +14,7 @@ export interface CanvasAssignment {
 export interface RubricLevel     { label: string; points: number; description: string; }
 export interface RubricCriterion { name: string; description: string; weight: number; levels: RubricLevel[]; }
 export interface Rubric           { criteria: RubricCriterion[]; totalPoints: number; }
-export interface Milestone        { order: number; title: string; description: string; estimatedHours: number; deliverable: string; }
+export interface Milestone        { order: number; title: string; description: string; estimatedHours: number; deliverable: string; tasks: string[]; }
 export interface Milestones       { milestones: Milestone[]; }
 export interface AnalysisResult   { rubric: Rubric; milestones: Milestones; }
 
