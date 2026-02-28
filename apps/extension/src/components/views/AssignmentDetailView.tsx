@@ -55,6 +55,7 @@ export function AssignmentDetailView({
   );
   const hydratedRef = useRef(false);
   const shouldAutoOpenReviewRef = useRef(false);
+  const wasAnalyzingRef = useRef(initialSession?.wasAnalyzing ?? false);
   const selectedMilestoneIndex = subPage?.type === "milestone" ? subPage.index : -1;
   const totalMilestones = result?.milestones.milestones.length ?? 0;
 
@@ -78,7 +79,7 @@ export function AssignmentDetailView({
   }, [courseId, assignmentId]);
 
   useEffect(() => {
-    if (autoAnalyze && loadChecked && status === "idle") {
+    if ((autoAnalyze || wasAnalyzingRef.current) && loadChecked && status === "idle") {
       analyze(courseId, assignmentId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,8 +112,9 @@ export function AssignmentDetailView({
     onSessionChange?.({
       subPage: subPage as SubPage | null,
       checkedMilestones: Array.from(checkedMilestones).sort((a, b) => a - b),
+      wasAnalyzing: status === "loading",
     });
-  }, [subPage, checkedMilestones, onSessionChange]);
+  }, [subPage, checkedMilestones, status, onSessionChange]);
 
   // Sub-page routing
   if (subPage) {

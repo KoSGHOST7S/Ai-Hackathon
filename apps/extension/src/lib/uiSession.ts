@@ -12,6 +12,7 @@ export interface AssignmentRef {
 export interface AssignmentDetailSession {
   subPage: SubPage | null;
   checkedMilestones: number[];
+  wasAnalyzing?: boolean;
 }
 
 export interface UiSessionState {
@@ -57,7 +58,7 @@ function sanitize(input: unknown): UiSessionState {
         ? candidate.checkedMilestones.filter((n): n is number => typeof n === "number" && n >= 0)
         : [];
       const subPage = isValidSubPage(candidate.subPage) ? candidate.subPage : null;
-      detailByAssignment[key] = { checkedMilestones: checked, subPage };
+      detailByAssignment[key] = { checkedMilestones: checked, subPage, wasAnalyzing: candidate.wasAnalyzing === true };
     }
   }
 
