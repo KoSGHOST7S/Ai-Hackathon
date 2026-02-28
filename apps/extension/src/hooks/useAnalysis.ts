@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { streamAnalysis, getAnalysisResult } from "@/lib/api";
-import { storageRemove } from "@/lib/storage";
+import { storageRemove, storageSetRaw } from "@/lib/storage";
 import type { AnalysisResult } from "@/types/analysis";
 
 export type AnalysisStatus = "idle" | "loading" | "done" | "error";
@@ -9,11 +9,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 function setAnalyzingJob(courseId: string, assignmentId: string, jwt: string) {
   const payload = { courseId, assignmentId, jwt, apiUrl: API_URL };
-  if (typeof chrome !== "undefined" && chrome.storage) {
-    chrome.storage.local.set({ analyzing_assignment: payload });
-    return;
-  }
-  localStorage.setItem("analyzing_assignment", JSON.stringify(payload));
+  void storageSetRaw("analyzing_assignment", payload);
 }
 
 function clearAnalyzingJob() {

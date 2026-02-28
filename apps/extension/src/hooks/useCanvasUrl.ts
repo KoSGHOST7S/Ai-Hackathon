@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getExtensionApi, hasBrowserNamespace, isPromiseLike } from "@/lib/extensionApi";
 
 interface CanvasAssignmentInfo {
   courseId: string;
@@ -12,18 +13,43 @@ export function useCanvasUrl() {
     const canvasBaseUrl = localStorage.getItem("canvasBaseUrl");
     if (!canvasBaseUrl) return;
 
-    // We use chrome.tabs to get the active tab's URL
-    if (typeof chrome !== "undefined" && chrome.tabs) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const activeTab = tabs[0];
+    const extensionApi = getExtensionApi();
+    const queryTabs = extensionApi?.tabs?.query;
+
+    if (queryTabs) {
+      if (hasBrowserNamespace()) {
+        const maybePromise = queryTabs({ active: true, currentWindow: true });
+        if (isPromiseLike<Array<{ url?: string }>>(maybePromise)) {
+          void maybePromise
+            .then((tabs) => {
+              const activeTab = tabs[0];
+              if (activeTab?.url) {
+                checkUrl(activeTab.url, canvasBaseUrl);
+                return;
+              }
+              checkUrl(window.location.href, canvasBaseUrl);
+            })
+            .catch(() => {
+              // ignore and fallback below
+              checkUrl(window.location.href, canvasBaseUrl);
+            });
+          return;
+        }
+      }
+
+      queryTabs({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs?.[0];
         if (activeTab?.url) {
           checkUrl(activeTab.url, canvasBaseUrl);
+          return;
         }
+        checkUrl(window.location.href, canvasBaseUrl);
       });
-    } else {
-      // Fallback for local development
-      checkUrl(window.location.href, canvasBaseUrl);
+      return;
     }
+
+    // Fallback for local development
+    checkUrl(window.location.href, canvasBaseUrl);
   }, []);
 
   const checkUrl = (currentUrl: string, baseUrl: string) => {

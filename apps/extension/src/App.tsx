@@ -14,7 +14,7 @@ import { useCanvasProfile } from "@/hooks/useCanvasProfile";
 import { useAssignments } from "@/hooks/useAssignments";
 import { apiFetch, API_RESPONSE_CACHE_TTL_MS, fetchAnalysisResults } from "@/lib/api";
 import { loadUiSession, saveUiSession, type AssignmentDetailSession } from "@/lib/uiSession";
-import { storageGet, storageRemove } from "@/lib/storage";
+import { storageGet, storageGetRaw, storageRemove } from "@/lib/storage";
 import type { SlideDirection } from "@/lib/slideTransitionLogic";
 import { cn } from "@/lib/utils";
 import type { MeResponse } from "shared";
@@ -148,13 +148,15 @@ export default function App() {
 
   // Check if popup was opened via the "Open in Assignmint" button on a Canvas page
   useEffect(() => {
-    if (typeof chrome === "undefined" || !chrome.storage) return;
-    chrome.storage.local.get("pendingAnalyze", (data) => {
-      const pending = data.pendingAnalyze as { courseId: string; assignmentId: string } | undefined;
-      if (pending) {
-        setPendingAnalyzeKey(`${pending.courseId}-${pending.assignmentId}`);
-        chrome.storage.local.remove("pendingAnalyze");
-      }
+    storageGetRaw("pendingAnalyze").then((raw) => {
+      const pending = raw && typeof raw === "object"
+        ? (raw as { courseId?: unknown; assignmentId?: unknown })
+        : null;
+
+      if (!pending?.courseId || !pending?.assignmentId) return;
+
+      setPendingAnalyzeKey(`${String(pending.courseId)}-${String(pending.assignmentId)}`);
+      void storageRemove("pendingAnalyze");
     });
   }, []);
 

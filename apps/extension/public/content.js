@@ -1,4 +1,12 @@
 (function () {
+  const ext =
+    typeof browser !== "undefined"
+      ? browser
+      : typeof chrome !== "undefined"
+      ? chrome
+      : null;
+  if (!ext?.storage?.local || !ext.runtime?.sendMessage) return;
+
   const match = window.location.pathname.match(/^\/courses\/(\d+)\/assignments\/(\d+)/);
   if (!match) return;
 
@@ -54,8 +62,8 @@
     });
 
     btn.addEventListener('click', () => {
-      chrome.storage.local.set({ pendingAssignment: JSON.stringify({ courseId, assignmentId }) });
-      chrome.runtime.sendMessage({ action: 'openPopup' });
+      ext.storage.local.set({ pendingAssignment: JSON.stringify({ courseId, assignmentId }) });
+      ext.runtime.sendMessage({ action: 'openPopup' });
     });
 
     target.insertBefore(btn, target.firstChild);

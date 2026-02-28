@@ -1,30 +1,98 @@
 const ALARM_NAME = "poll_analysis";
 const POLL_INTERVAL_MINUTES = 5 / 60; // every 5 seconds
 const FALLBACK_API_URL = "https://api.assignmint.ai";
-const ext = typeof browser !== "undefined" ? browser : chrome;
+const ext =
+  typeof browser !== "undefined"
+    ? browser
+    : typeof chrome !== "undefined"
+    ? chrome
+    : null;
+const action = ext?.action ?? ext?.browserAction;
+if (!ext?.alarms || !ext.storage?.local || !action) {
+  throw new Error("Extension APIs are unavailable in background context.");
+}
 
 // Badge cycle frames shown while analysis is running in the background
 const PULSE_FRAMES = ["·", "··", "···", "··"];
 let pulseFrame = 0;
 
+function isPromiseLike(value) {
+  return !!value && typeof value.then === "function";
+}
+
+function storageGetLocal(key) {
+  return new Promise((resolve) => {
+    try {
+      const maybePromise = ext.storage.local.get(key, resolve);
+      if (isPromiseLike(maybePromise)) {
+        maybePromise.then((result) => resolve(result ?? {})).catch(() => resolve({}));
+      }
+    } catch {
+      resolve({});
+    }
+  });
+}
+
+function storageRemoveLocal(key) {
+  return new Promise((resolve) => {
+    try {
+      const maybePromise = ext.storage.local.remove(key, resolve);
+      if (isPromiseLike(maybePromise)) {
+        maybePromise.then(() => resolve()).catch(() => resolve());
+      }
+    } catch {
+      resolve();
+    }
+  });
+}
+
+function alarmsGet(name) {
+  return new Promise((resolve) => {
+    try {
+      const maybePromise = ext.alarms.get(name, resolve);
+      if (isPromiseLike(maybePromise)) {
+        maybePromise.then((alarm) => resolve(alarm ?? null)).catch(() => resolve(null));
+      }
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function alarmsClear(name) {
+  try {
+    const maybePromise = ext.alarms.clear(name);
+    if (isPromiseLike(maybePromise)) {
+      void maybePromise.catch(() => {});
+    }
+  } catch {
+    // Ignore clear errors.
+  }
+}
+
 function setPendingBadge() {
   pulseFrame = (pulseFrame + 1) % PULSE_FRAMES.length;
-  ext.action.setBadgeText({ text: PULSE_FRAMES[pulseFrame] });
-  ext.action.setBadgeBackgroundColor({ color: "#6366f1" }); // primary
+  if (typeof action.setBadgeText === "function") {
+    action.setBadgeText({ text: PULSE_FRAMES[pulseFrame] });
+  }
+  if (typeof action.setBadgeBackgroundColor === "function") {
+    action.setBadgeBackgroundColor({ color: "#6366f1" }); // primary
+  }
 }
 
 function setDoneBadge() {
-  ext.action.setBadgeText({ text: "✓" });
-  ext.action.setBadgeBackgroundColor({ color: "#22c55e" });
-}
-
-function setErrorBadge() {
-  ext.action.setBadgeText({ text: "!" });
-  ext.action.setBadgeBackgroundColor({ color: "#ef4444" });
+  if (typeof action.setBadgeText === "function") {
+    action.setBadgeText({ text: "✓" });
+  }
+  if (typeof action.setBadgeBackgroundColor === "function") {
+    action.setBadgeBackgroundColor({ color: "#22c55e" });
+  }
 }
 
 function clearBadge() {
-  ext.action.setBadgeText({ text: "" });
+  if (typeof action.setBadgeText === "function") {
+    action.setBadgeText({ text: "" });
+  }
 }
 
 function openExtensionPageInTab(windowId) {
@@ -36,9 +104,9 @@ function openExtensionPageInTab(windowId) {
 }
 
 async function openPopupOrFallback(windowId) {
-  if (typeof ext.action.openPopup === "function") {
+  if (typeof action.openPopup === "function") {
     try {
-      await ext.action.openPopup();
+      await action.openPopup();
       return;
     } catch {
       // Firefox and some Chrome contexts can reject this outside explicit action flow
@@ -61,11 +129,11 @@ function parseAnalyzingJob(raw) {
 }
 
 async function pollOnce() {
-  const data = await ext.storage.local.get("analyzing_assignment");
+  const data = await storageGetLocal("analyzing_assignment");
   const job = parseAnalyzingJob(data.analyzing_assignment);
   if (!job) {
     // Job was cleared by the popup (it finished while popup was open)
-    ext.alarms.clear(ALARM_NAME);
+    alarmsClear(ALARM_NAME);
     clearBadge();
     return;
   }
@@ -80,13 +148,36 @@ async function pollOnce() {
     );
 
     if (res.ok) {
-      await ext.storage.local.remove("analyzing_assignment");
-      ext.alarms.clear(ALARM_NAME);
+      await storageRemoveLocal("analyzing_assignment");
+      alarmsClear(ALARM_NAME);
       setDoneBadge();
     }
     // 404 / other non-ok = still processing, keep polling
   } catch {
     // Network error — keep polling, don't surface as failure yet
+  }
+}
+
+function ensurePollingAlarm() {
+  ext.alarms.create(ALARM_NAME, {
+    delayInMinutes: POLL_INTERVAL_MINUTES,
+    periodInMinutes: POLL_INTERVAL_MINUTES,
+  });
+}
+
+async function restorePollingIfNeeded() {
+  const data = await storageGetLocal("analyzing_assignment");
+  const job = parseAnalyzingJob(data.analyzing_assignment);
+
+  if (!job) {
+    clearBadge();
+    return;
+  }
+
+  setPendingBadge();
+  const existingAlarm = await alarmsGet(ALARM_NAME);
+  if (!existingAlarm) {
+    ensurePollingAlarm();
   }
 }
 
@@ -99,13 +190,10 @@ ext.storage.onChanged.addListener((changes, area) => {
   if (newValue) {
     // Analysis started — begin polling loop
     setPendingBadge();
-    ext.alarms.create(ALARM_NAME, {
-      delayInMinutes: POLL_INTERVAL_MINUTES,
-      periodInMinutes: POLL_INTERVAL_MINUTES,
-    });
+    ensurePollingAlarm();
   } else {
     // Cleared by popup (completed/errored while popup was open)
-    ext.alarms.clear(ALARM_NAME);
+    alarmsClear(ALARM_NAME);
   }
 });
 
@@ -118,15 +206,10 @@ ext.alarms.onAlarm.addListener((alarm) => {
 
 // Re-attach polling on SW restart if a job was in-flight
 ext.runtime.onStartup.addListener(async () => {
-  const data = await ext.storage.local.get("analyzing_assignment");
-  if (data.analyzing_assignment) {
-    setPendingBadge();
-    ext.alarms.create(ALARM_NAME, {
-      delayInMinutes: POLL_INTERVAL_MINUTES,
-      periodInMinutes: POLL_INTERVAL_MINUTES,
-    });
-  }
+  await restorePollingIfNeeded();
 });
+
+void restorePollingIfNeeded();
 
 // openPopup message (existing)
 ext.runtime.onMessage.addListener((message, sender) => {
