@@ -117,6 +117,53 @@ export async function* streamFromAgentsService(
   }
 }
 
+export interface CriterionScore {
+  criterionName: string; level: string; points: number; maxPoints: number; feedback: string;
+}
+export interface ReviewResponse {
+  scores: CriterionScore[];
+  totalScore: number; totalPossible: number;
+  strengths: string[]; improvements: string[]; nextSteps: string[];
+}
+export interface ReviewRequest {
+  assignment_name: string;
+  assignment_description: string;
+  rubric: Rubric;
+  submission_text: string;
+  submission_files: FileContent[];
+}
+
+export async function* streamReview(req: ReviewRequest): AsyncGenerator<SseProgressEvent | { type: "done"; result: ReviewResponse } | SseErrorEvent> {
+  const res = await fetch(`${AGENTS_URL}/review/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok || !res.body) {
+    yield { type: "error", error: `Review service error ${res.status}` }; return;
+  }
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for await (const chunk of res.body as AsyncIterable<Uint8Array>) {
+    buffer += decoder.decode(chunk, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+    for (const raw of events) {
+      if (!raw.trim()) continue;
+      const lines = raw.split("\n");
+      const eventType = lines.find((l) => l.startsWith("event:"))?.slice(6).trim();
+      const dataStr = lines.find((l) => l.startsWith("data:"))?.slice(5).trim();
+      if (!dataStr) continue;
+      try {
+        const data = JSON.parse(dataStr);
+        if (eventType === "progress") yield { type: "progress", step: data.step, label: data.label };
+        else if (eventType === "done") yield { type: "done", result: data as ReviewResponse };
+        else if (eventType === "error") yield { type: "error", error: data.error };
+      } catch { /* skip */ }
+    }
+  }
+}
+
 export interface ChatMessage { role: string; content: string; }
 export interface ChatRequest { system_context: string; messages: ChatMessage[]; }
 

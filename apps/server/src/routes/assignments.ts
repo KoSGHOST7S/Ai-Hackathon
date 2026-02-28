@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
-import { callAgentsService, streamFromAgentsService, parseFileViaAgents, streamChat, type AgentsAnalyzeRequest, type FileContent } from "../lib/agents";
+import { callAgentsService, streamFromAgentsService, parseFileViaAgents, streamChat, streamReview, type AgentsAnalyzeRequest, type FileContent, type ReviewRequest } from "../lib/agents";
 import { canvasFetch, getCanvasCredentials } from "../lib/canvas";
 
 const router = Router();
@@ -238,6 +238,93 @@ router.post("/:courseId/:assignmentId/chat", requireAuth, async (req: AuthReques
       res.write(`event: error\ndata: ${JSON.stringify({ error: "Internal error" })}\n\n`);
       res.end();
     }
+  }
+});
+
+// POST /assignments/:courseId/:assignmentId/review — submit work for review (SSE)
+router.post("/:courseId/:assignmentId/review", requireAuth, async (req: AuthRequest, res: Response) => {
+  const { courseId, assignmentId } = req.params;
+  const { submission_text, submission_files } = req.body as {
+    submission_text?: string;
+    submission_files?: FileContent[];
+  };
+  if (!submission_text && (!submission_files || submission_files.length === 0)) {
+    res.status(400).json({ error: "Provide submission_text or submission_files" }); return;
+  }
+
+  try {
+    const analysis = await prisma.analysisResult.findUnique({
+      where: { userId_courseId_assignmentId: { userId: req.userId!, courseId, assignmentId } },
+    });
+    if (!analysis) { res.status(404).json({ error: "Analyze the assignment first" }); return; }
+
+    const creds = await getCanvasCredentials(req.userId!);
+    if (!creds) { res.status(400).json({ error: "Canvas not configured" }); return; }
+
+    const assignment = await canvasFetch(creds.baseUrl, creds.apiKey,
+      `/courses/${courseId}/assignments/${assignmentId}`);
+    const description = (assignment.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
+    const reviewReq: ReviewRequest = {
+      assignment_name: assignment.name,
+      assignment_description: description,
+      rubric: analysis.rubric as any,
+      submission_text: submission_text ?? "",
+      submission_files: submission_files ?? [],
+    };
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    for await (const event of streamReview(reviewReq)) {
+      if (event.type === "progress") {
+        res.write(`event: progress\ndata: ${JSON.stringify({ step: event.step, label: event.label })}\n\n`);
+      } else if (event.type === "done") {
+        try {
+          await prisma.reviewResult.upsert({
+            where: { userId_courseId_assignmentId: { userId: req.userId!, courseId, assignmentId } },
+            update: {
+              scores: event.result.scores as object[], totalScore: event.result.totalScore,
+              totalPossible: event.result.totalPossible, strengths: event.result.strengths,
+              improvements: event.result.improvements, nextSteps: event.result.nextSteps,
+            },
+            create: {
+              userId: req.userId!, courseId, assignmentId,
+              scores: event.result.scores as object[], totalScore: event.result.totalScore,
+              totalPossible: event.result.totalPossible, strengths: event.result.strengths,
+              improvements: event.result.improvements, nextSteps: event.result.nextSteps,
+            },
+          });
+        } catch (e) { console.error("Review DB upsert failed:", e); }
+        res.write(`event: done\ndata: ${JSON.stringify(event.result)}\n\n`);
+        res.end(); return;
+      } else if (event.type === "error") {
+        res.write(`event: error\ndata: ${JSON.stringify({ error: event.error })}\n\n`);
+        res.end(); return;
+      }
+    }
+    res.end();
+  } catch (err) {
+    console.error("review error:", err);
+    if (!res.headersSent) res.status(502).json({ error: "Review failed" });
+    else { res.write(`event: error\ndata: ${JSON.stringify({ error: "Internal error" })}\n\n`); res.end(); }
+  }
+});
+
+// GET /assignments/:courseId/:assignmentId/review — get cached review
+router.get("/:courseId/:assignmentId/review", requireAuth, async (req: AuthRequest, res: Response) => {
+  const { courseId, assignmentId } = req.params;
+  try {
+    const result = await prisma.reviewResult.findUnique({
+      where: { userId_courseId_assignmentId: { userId: req.userId!, courseId, assignmentId } },
+    });
+    if (!result) { res.status(404).json({ error: "No review found" }); return; }
+    res.json(result);
+  } catch (err) {
+    console.error("get review error:", err);
+    res.status(500).json({ error: "Failed to retrieve review" });
   }
 });
 
